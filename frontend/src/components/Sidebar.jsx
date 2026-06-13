@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Pencil, PanelLeftClose, PanelLeft, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, PanelLeftClose, PanelLeft, Check, CalendarDays } from "lucide-react";
 import { api } from "../api";
 import { Icon } from "../lib/icons";
 import { useClickOutside } from "../lib/useClickOutside";
 import IconPicker from "./IconPicker";
 import ThemeToggle from "./ThemeToggle";
 
-export default function Sidebar({ projects, selectedId, onSelect, onProjectsChanged }) {
+export default function Sidebar({
+  projects,
+  selectedId,
+  onSelect,
+  onProjectsChanged,
+  calendarActive,
+  onOpenCalendar,
+}) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [newIcon, setNewIcon] = useState(null);
@@ -86,6 +93,28 @@ export default function Sidebar({ projects, selectedId, onSelect, onProjectsChan
           >
             <Plus size={16} />
           </button>
+        </div>
+      </div>
+
+      {/* Calendar — a pinned view above the project list */}
+      <div className="px-2 pb-1">
+        <div
+          onClick={onOpenCalendar}
+          title={collapsed ? "Calendar" : undefined}
+          className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+            calendarActive
+              ? "bg-accent-subtle font-medium text-text-primary"
+              : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+          }`}
+        >
+          <CalendarDays size={16} className="shrink-0 text-accent" />
+          <span
+            className={`flex-1 truncate transition-opacity duration-150 ${
+              collapsed ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            Calendar
+          </span>
         </div>
       </div>
 

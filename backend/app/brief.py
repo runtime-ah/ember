@@ -1,10 +1,10 @@
 import logging
-from datetime import date, datetime, time
+from datetime import date
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app import ical
 from app.models import Task
 
 log = logging.getLogger("todo.brief")
@@ -18,45 +18,6 @@ def _task_summary(task: Task) -> dict:
         "due_date": task.due_date.isoformat() if task.due_date else None,
         "due_time": task.due_time.strftime("%H:%M") if task.due_time else None,
     }
-
-
-def _fetch_calendar_events(day: date) -> list[dict]:
-    """Read today's events from iCloud via CalDAV. Returns [] if unconfigured
-    or on any error — the brief should never fail because of the calendar."""
-    if not (settings.caldav_username and settings.caldav_password):
-        return []
-    try:
-        import caldav  # imported lazily so the dep is optional at runtime
-
-        client = caldav.DAVClient(
-            url=settings.caldav_url,
-            username=settings.caldav_username,
-            password=settings.caldav_password,
-        )
-        principal = client.principal()
-        start = datetime.combine(day, time.min)
-        end = datetime.combine(day, time.max)
-
-        events: list[dict] = []
-        for calendar in principal.calendars():
-            try:
-                results = calendar.search(start=start, end=end, event=True, expand=True)
-            except Exception:
-                continue
-            for ev in results:
-                comp = ev.icalendar_component
-                summary = str(comp.get("summary", "(untitled)"))
-                dtstart = comp.get("dtstart")
-                when = ""
-                if dtstart is not None:
-                    val = dtstart.dt
-                    when = val.strftime("%H:%M") if isinstance(val, datetime) else "all day"
-                events.append({"summary": summary, "start": when})
-        events.sort(key=lambda e: e["start"])
-        return events
-    except Exception as e:  # noqa: BLE001 — calendar is best-effort
-        log.warning("CalDAV fetch failed: %s", e)
-        return []
 
 
 def build_brief(db: Session, day: date | None = None) -> dict:
@@ -91,8 +52,13 @@ def build_brief(db: Session, day: date | None = None) -> dict:
         "overdue": [_task_summary(t) for t in overdue],
         "due_today": [_task_summary(t) for t in due_today],
         "important_undated": [_task_summary(t) for t in important],
-        "events": _fetch_calendar_events(day),
+        "events": ical.fetch_events(day, day),
     }
+
+
+def _event_label(e: dict) -> str:
+    when = "all day" if e["all_day"] else e["start"][11:16]  # HH:MM
+    return f"{when} — {e['summary']}"
 
 
 def format_brief_text(brief: dict) -> str:
@@ -113,10 +79,7 @@ def format_brief_text(brief: dict) -> str:
     section("⚠️ Overdue", [task_line(t) for t in brief["overdue"]])
     section("📅 Due today", [task_line(t) for t in brief["due_today"]])
     section("⭐ Important (no date)", [task_line(t) for t in brief["important_undated"]])
-    section(
-        "🗓️ Today's events",
-        [f"{e['start']} — {e['summary']}".strip(" —") for e in brief["events"]],
-    )
+    section("🗓️ Today's events", [_event_label(e) for e in brief["events"]])
 
     if not lines:
         return "Nothing on the radar today. 🎉"

@@ -4,6 +4,9 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from datetime import date
+
+from app import ical
 from app.brief import build_brief
 from app.config import settings
 from app.database import get_db, init_db
@@ -45,3 +48,10 @@ def get_brief(db: Session = Depends(get_db)):
     events. Also pushed daily via ntfy; exposed here for on-demand use and the
     future dashboard widget."""
     return build_brief(db)
+
+
+@app.get("/api/calendar")
+def get_calendar(start: date, end: date):
+    """iCloud calendar events between start and end (inclusive). Returns
+    `configured: false` (with empty events) until CalDAV credentials are set."""
+    return {"configured": ical.is_configured(), "events": ical.fetch_events(start, end)}

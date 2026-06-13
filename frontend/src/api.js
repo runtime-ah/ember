@@ -29,6 +29,9 @@ export const api = {
     request(`/sections/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteSection: (id) => request(`/sections/${id}`, { method: "DELETE" }),
 
+  // Calendar (read-only iCloud via CalDAV)
+  getCalendar: (start, end) => request(`/calendar?start=${start}&end=${end}`),
+
   // Tasks
   listTasks: (params = {}) => {
     const qs = new URLSearchParams(params).toString();

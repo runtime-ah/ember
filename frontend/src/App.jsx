@@ -3,11 +3,13 @@ import { api } from "./api";
 import { useIsMobile } from "./lib/useIsMobile";
 import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
+import CalendarView from "./components/CalendarView";
 import MobileCapture from "./components/MobileCapture";
 
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isMobile = useIsMobile();
@@ -47,9 +49,14 @@ export default function App() {
     <div className="flex h-full">
       <Sidebar
         projects={projects}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
+        selectedId={showCalendar ? null : selectedId}
+        onSelect={(id) => {
+          setShowCalendar(false);
+          setSelectedId(id);
+        }}
         onProjectsChanged={loadProjects}
+        calendarActive={showCalendar}
+        onOpenCalendar={() => setShowCalendar(true)}
       />
       <main className="flex-1 overflow-y-auto">
         {error && (
@@ -59,6 +66,8 @@ export default function App() {
         )}
         {loading ? (
           <p className="p-8 text-text-muted">Loading…</p>
+        ) : showCalendar ? (
+          <CalendarView />
         ) : selected ? (
           <TaskView key={selected.id} project={selected} />
         ) : (
