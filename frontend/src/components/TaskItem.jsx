@@ -29,7 +29,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
   return (
     <div>
-      <div className="group flex items-start gap-2.5 rounded-md px-2 py-2 transition-colors duration-150 hover:bg-elevated/60">
+      <div className="group flex items-start gap-2.5 border-b border-border/70 px-2 py-1.5 transition-colors duration-150 hover:bg-elevated/40">
         <button
           onClick={toggle}
           className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-all duration-150 hover:scale-110"

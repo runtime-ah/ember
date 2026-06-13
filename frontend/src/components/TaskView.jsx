@@ -108,8 +108,8 @@ export default function TaskView({ project }) {
   const completedCount = topLevel.filter((t) => t.completed).length;
 
   return (
-    <div className="mx-auto max-w-[720px] px-8 py-10">
-      <header className="mb-7 flex items-center gap-3">
+    <div className="mx-auto max-w-[720px] px-6 py-7">
+      <header className="mb-5 flex items-center gap-3">
         <h1 className="flex flex-1 items-center gap-2.5 text-2xl font-semibold text-text-primary">
           <Icon name={project.icon} size={22} style={{ color: project.color }} />
           {project.name}
@@ -132,7 +132,7 @@ export default function TaskView({ project }) {
       </header>
 
       {/* Sectionless tasks */}
-      <div className="space-y-0.5">{renderTaskList(tasksFor(null))}</div>
+      {renderTaskList(tasksFor(null))}
       {adding === null && (
         <AddTask
           projectId={project.id}
@@ -147,7 +147,7 @@ export default function TaskView({ project }) {
         const isCollapsed = collapsed.has(s.id);
         const count = tasksFor(s.id).length;
         return (
-          <section key={s.id} className="mt-6">
+          <section key={s.id} className="mt-5">
             {editingSectionId === s.id ? (
               <SectionEditor
                 section={s}
@@ -200,8 +200,8 @@ export default function TaskView({ project }) {
             )}
 
             {!isCollapsed && (
-              <div className="mt-1">
-                <div className="space-y-0.5">{renderTaskList(tasksFor(s.id))}</div>
+              <div className="mt-1.5">
+                {renderTaskList(tasksFor(s.id))}
                 {adding === s.id && (
                   <AddTask
                     projectId={project.id}
@@ -217,7 +217,7 @@ export default function TaskView({ project }) {
       })}
 
       {/* Add section */}
-      <div className="mt-8">
+      <div className="mt-6">
         {addingSection ? (
           <form ref={addSectionRef} onSubmit={addSection} className="flex items-center gap-2">
             <IconPicker value={sectionIcon} onChange={setSectionIcon} color="#999999" />

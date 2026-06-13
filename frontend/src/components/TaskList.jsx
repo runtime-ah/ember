@@ -31,7 +31,7 @@ export default function TaskList({ tasks, subtasksByParent, visible, projectId, 
   }
 
   return (
-    <div className="space-y-0.5">
+    <div>
       {tasks.map((t) => {
         const isOver = overId === t.id && dragId !== t.id;
         return (
