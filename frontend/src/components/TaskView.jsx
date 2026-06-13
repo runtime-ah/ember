@@ -109,22 +109,22 @@ export default function TaskView({ project }) {
 
   return (
     <div className="mx-auto max-w-[720px] px-8 py-10">
-      <header className="mb-6 flex items-center gap-3">
-        <h1 className="flex flex-1 items-center gap-2 text-xl font-medium text-text-primary">
-          <Icon name={project.icon} size={20} style={{ color: project.color }} />
+      <header className="mb-7 flex items-center gap-3">
+        <h1 className="flex flex-1 items-center gap-2.5 text-2xl font-semibold text-text-primary">
+          <Icon name={project.icon} size={22} style={{ color: project.color }} />
           {project.name}
         </h1>
         {completedCount > 0 && (
           <button
             onClick={() => setShowCompleted((v) => !v)}
-            className="text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
+            className="nums text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
           >
             {showCompleted ? "Hide" : "Show"} completed ({completedCount})
           </button>
         )}
         <button
           onClick={() => setAdding(null)}
-          className="flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm text-white transition-colors duration-150 hover:bg-accent-hover"
+          className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-white shadow-soft transition-all duration-150 hover:-translate-y-px hover:bg-accent-hover active:translate-y-0"
           title="Add task"
         >
           <Plus size={16} /> Add task
@@ -155,19 +155,21 @@ export default function TaskView({ project }) {
                 onSaved={load}
               />
             ) : (
-              <div className="group flex items-center gap-2 rounded-md bg-surface px-3 py-2">
+              <div className="group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-soft transition-colors duration-150">
                 <button
                   onClick={() => toggleCollapsed(s.id)}
-                  className="text-text-muted transition-colors duration-150 hover:text-text-primary"
+                  className="text-text-muted transition-transform duration-150 hover:text-text-primary"
                   title={isCollapsed ? "Expand section" : "Collapse section"}
                 >
                   {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                 </button>
                 <Icon name={s.icon} size={14} className="text-text-secondary" />
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
                   {s.name}
                 </h2>
-                <span className="text-xs text-text-muted">{count}</span>
+                <span className="nums rounded-full bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                  {count}
+                </span>
                 <div className="ml-auto flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                   <button
                     onClick={() => {

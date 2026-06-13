@@ -29,10 +29,10 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
   return (
     <div>
-      <div className="group flex items-start gap-2 rounded px-1 py-1.5 transition-colors duration-150 hover:bg-elevated/50">
+      <div className="group flex items-start gap-2.5 rounded-md px-2 py-2 transition-colors duration-150 hover:bg-elevated/60">
         <button
           onClick={toggle}
-          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors duration-150"
+          className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-all duration-150 hover:scale-110"
           style={{
             borderColor: dotColor ?? "var(--color-text-muted)",
             backgroundColor: task.completed ? "var(--color-accent)" : "transparent",
@@ -68,23 +68,29 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           {task.description && (
             <p className="truncate text-xs text-text-secondary">{task.description}</p>
           )}
-          <div className="flex items-center gap-3">
-            {due && (
-              <span
-                className={`text-xs ${due.overdue && !task.completed ? "text-danger" : "text-text-secondary"}`}
-              >
-                {due.label}
-              </span>
-            )}
-            {task.reminder_time && !task.completed && (
-              <span
-                className="flex items-center gap-1 text-xs text-text-secondary"
-                title={`Reminder: ${new Date(task.reminder_time).toLocaleString()}`}
-              >
-                <Bell size={11} />
-              </span>
-            )}
-          </div>
+          {(due || (task.reminder_time && !task.completed)) && (
+            <div className="mt-1 flex items-center gap-1.5">
+              {due && (
+                <span
+                  className={`nums inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+                    due.overdue && !task.completed
+                      ? "bg-danger/12 text-danger"
+                      : "bg-elevated text-text-secondary"
+                  }`}
+                >
+                  {due.label}
+                </span>
+              )}
+              {task.reminder_time && !task.completed && (
+                <span
+                  className="inline-flex items-center rounded-md bg-elevated px-1.5 py-0.5 text-text-secondary"
+                  title={`Reminder: ${new Date(task.reminder_time).toLocaleString()}`}
+                >
+                  <Bell size={11} />
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-0.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -159,7 +165,7 @@ function TaskEditor({ task, onDone, onChanged }) {
   }
 
   return (
-    <form ref={ref} onSubmit={save} className="my-1 rounded border border-border bg-surface p-3">
+    <form ref={ref} onSubmit={save} className="animate-pop my-1.5 rounded-lg border border-border bg-surface p-3 shadow-pop">
       <input
         autoFocus
         value={content}

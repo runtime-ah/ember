@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
-/* Style guide tokens (plan.md → UI Style Guide). Tailwind v4 reads these
-   and generates utilities like bg-base, text-secondary, border-border, etc. */
+/* Design tokens. Dark is the default; light overrides below. Tailwind v4 reads
+   these and generates utilities (bg-base, text-secondary, border-border, …). */
 @theme {
   --color-base: #1a1a1a;
   --color-surface: #222222;
   --color-elevated: #2a2a2a;
-  --color-border: #333333;
+  --color-border: #313131;
   --color-text-primary: #ececec;
-  --color-text-secondary: #999999;
-  --color-text-muted: #666666;
+  --color-text-secondary: #9b9b97;
+  --color-text-muted: #6a6a66;
   --color-accent: #c96442;
-  --color-accent-hover: #b5563a;
+  --color-accent-hover: #d57452;
+  --color-accent-subtle: rgba(201, 100, 66, 0.14);
   --color-danger: #e05c5c;
 
   /* Priority dots */
@@ -20,27 +21,45 @@
   --color-p3: #5c84e0;
 
   --font-sans: "Inter", system-ui, sans-serif;
+
+  /* Radii — a touch softer than before for a calmer, modern feel. */
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
 }
 
-/* Light theme — warm cream paper, not stark white. Overrides the dark token
-   defaults above when <html data-theme="light"> is set. Utilities reference
-   these vars, so the whole UI follows. */
+/* Light theme — warm cream paper, not stark white. */
 :root[data-theme="light"] {
-  --color-base: #f6f1e7;
-  --color-surface: #efe8d8;
-  --color-elevated: #e5dcc7;
-  --color-border: #ddd2bc;
-  --color-text-primary: #2a2722;
-  --color-text-secondary: #6f6757;
-  --color-text-muted: #a59b85;
+  --color-base: #f7f3ea;
+  --color-surface: #f1ebdd;
+  --color-elevated: #e8e0cf;
+  --color-border: #e0d6c3;
+  --color-text-primary: #2a2620;
+  --color-text-secondary: #6d6553;
+  --color-text-muted: #a89e88;
+  --color-accent: #bf5a37;
+  --color-accent-hover: #ab4f30;
+  --color-accent-subtle: rgba(191, 90, 55, 0.1);
   --color-danger: #c2412e;
 }
 
+/* Soft, warm elevation. Kept subtle — depth, not drama. */
 :root {
   color-scheme: dark;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 1px rgba(0, 0, 0, 0.18);
+  --shadow-pop: 0 8px 28px -6px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 :root[data-theme="light"] {
   color-scheme: light;
+  --shadow-soft: 0 1px 2px rgba(83, 64, 36, 0.07), 0 1px 1px rgba(83, 64, 36, 0.04);
+  --shadow-pop: 0 12px 32px -8px rgba(83, 64, 36, 0.18), 0 3px 10px rgba(83, 64, 36, 0.08);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+.shadow-pop {
+  box-shadow: var(--shadow-pop);
 }
 
 html,
@@ -55,11 +74,53 @@ body {
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv05", "ss01";
 }
 
-/* Custom checkbox baseline reset */
+/* Tighter tracking on headings reads more deliberate. */
+h1,
+h2 {
+  letter-spacing: -0.018em;
+}
+
+/* Numbers (counts, dates) line up. */
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
 input[type="checkbox"] {
   accent-color: var(--color-accent);
+}
+
+/* Slim, unobtrusive scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+}
+
+/* Micro-interaction: inline composers/popovers ease in rather than snap. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pop {
+  animation: pop-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }

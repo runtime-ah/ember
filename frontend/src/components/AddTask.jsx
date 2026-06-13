@@ -38,7 +38,11 @@ export default function AddTask({
   }
 
   return (
-    <form ref={ref} onSubmit={submit} className="mt-1 rounded border border-border bg-surface p-3">
+    <form
+      ref={ref}
+      onSubmit={submit}
+      className="animate-pop mt-1.5 rounded-lg border border-border bg-surface p-3 shadow-pop"
+    >
       <input
         autoFocus
         value={content}

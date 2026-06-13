@@ -26,7 +26,7 @@ export default function IconPicker({ value, onChange, color, size = 16 }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-md border border-border bg-elevated p-2 shadow-lg">
+        <div className="animate-pop absolute left-0 top-full z-20 mt-1.5 w-56 rounded-lg border border-border bg-elevated p-2 shadow-pop">
           <div className="grid grid-cols-7 gap-1">
             <button
               type="button"

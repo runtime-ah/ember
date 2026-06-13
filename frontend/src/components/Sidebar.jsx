@@ -114,10 +114,10 @@ export default function Sidebar({ projects, selectedId, onSelect, onProjectsChan
               key={p.id}
               onClick={() => onSelect(p.id)}
               title={collapsed ? p.name : undefined}
-              className={`group flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors duration-150 ${
+              className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
                 active
-                  ? "border-l-2 border-accent bg-elevated text-text-primary"
-                  : "border-l-2 border-transparent text-text-secondary hover:text-text-primary"
+                  ? "bg-accent-subtle font-medium text-text-primary"
+                  : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
               }`}
             >
               <Icon name={p.icon} size={16} className="shrink-0" style={{ color: p.color }} />
