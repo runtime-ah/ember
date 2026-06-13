@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, Bell, Plus } from "lucide-react";
+import { Trash2, Bell, Plus, ChevronRight, ChevronDown } from "lucide-react";
 import { api } from "../api";
 import { PRIORITIES, priorityColor, formatDue } from "../lib/priority";
 import { useClickOutside } from "../lib/useClickOutside";
@@ -8,6 +8,10 @@ import AddTask from "./AddTask";
 export default function TaskItem({ task, subtasks = [], projectId, onChanged }) {
   const [editing, setEditing] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
+  // Subtasks start collapsed; the parent owns the open/closed state.
+  const [expanded, setExpanded] = useState(false);
+  const hasSubtasks = subtasks.length > 0;
+  const isTopLevel = task.parent_id == null;
 
   async function toggle() {
     if (task.completed) await api.uncompleteTask(task.id);
@@ -29,7 +33,19 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
   return (
     <div>
-      <div className="group flex items-start gap-2.5 border-b border-border/70 px-2 py-1.5 transition-colors duration-150 hover:bg-elevated/40">
+      <div className="group flex items-start gap-2 border-b border-border/70 px-2 py-1.5 transition-colors duration-150 hover:bg-elevated/40">
+        {isTopLevel &&
+          (hasSubtasks ? (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-text-muted transition-colors duration-150 hover:text-text-primary"
+              title={expanded ? "Collapse subtasks" : "Expand subtasks"}
+            >
+              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          ) : (
+            <span className="h-4 w-4 shrink-0" aria-hidden="true" />
+          ))}
         <button
           onClick={toggle}
           className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-all duration-150 hover:scale-110"
@@ -64,6 +80,11 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
                 title={`P${task.priority}`}
               />
             )}
+            {hasSubtasks && !expanded && (
+              <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                {subtasks.length}
+              </span>
+            )}
           </div>
           {task.description && (
             <p className="truncate text-xs text-text-secondary">{task.description}</p>
@@ -94,9 +115,12 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
         </div>
 
         <div className="mt-0.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-          {task.parent_id == null && (
+          {isTopLevel && (
             <button
-              onClick={() => setAddingSub(true)}
+              onClick={() => {
+                setExpanded(true);
+                setAddingSub(true);
+              }}
               className="text-text-muted hover:text-text-primary"
               title="Add subtask"
             >
@@ -113,7 +137,8 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
         </div>
       </div>
 
-      {/* Subtasks (one level deep) */}
+      {/* Subtasks (one level deep) — collapsed by default */}
+      {(expanded || addingSub) && (
       <div className="ml-6">
         {subtasks.map((st) => (
           <TaskItem
@@ -134,6 +159,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           />
         )}
       </div>
+      )}
     </div>
   );
 }
