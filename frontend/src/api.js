@@ -39,5 +39,7 @@ export const api = {
     request(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   completeTask: (id) => request(`/tasks/${id}/complete`, { method: "POST" }),
   uncompleteTask: (id) => request(`/tasks/${id}/uncomplete`, { method: "POST" }),
+  reorderTasks: (items) =>
+    request("/tasks/reorder", { method: "POST", body: JSON.stringify({ items }) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: "DELETE" }),
 };

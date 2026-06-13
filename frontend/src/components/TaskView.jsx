@@ -4,7 +4,7 @@ import { api } from "../api";
 import { Icon } from "../lib/icons";
 import { useClickOutside } from "../lib/useClickOutside";
 import IconPicker from "./IconPicker";
-import TaskItem from "./TaskItem";
+import TaskList from "./TaskList";
 import AddTask from "./AddTask";
 
 const COLLAPSED_KEY = "collapsed-sections";
@@ -94,15 +94,15 @@ export default function TaskView({ project }) {
   }
 
   function renderTaskList(list) {
-    return list.map((t) => (
-      <TaskItem
-        key={t.id}
-        task={t}
-        subtasks={(subtasksByParent[t.id] ?? []).filter(visible)}
+    return (
+      <TaskList
+        tasks={list}
+        subtasksByParent={subtasksByParent}
+        visible={visible}
         projectId={project.id}
         onChanged={load}
       />
-    ));
+    );
   }
 
   const completedCount = topLevel.filter((t) => t.completed).length;

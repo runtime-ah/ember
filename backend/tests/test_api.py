@@ -78,6 +78,22 @@ def test_project_section_task_flow():
     assert client.get(f"/api/tasks/{t['id']}").status_code == 404
 
 
+def test_reorder_tasks():
+    p = client.post("/api/projects", json={"name": "Reorder"}).json()
+    a = client.post("/api/tasks", json={"project_id": p["id"], "content": "A"}).json()
+    b = client.post("/api/tasks", json={"project_id": p["id"], "content": "B"}).json()
+
+    # Put B before A.
+    r = client.post(
+        "/api/tasks/reorder",
+        json={"items": [{"id": b["id"], "order": 0}, {"id": a["id"], "order": 1}]},
+    )
+    assert r.status_code == 204
+
+    ordered = client.get("/api/tasks", params={"project_id": p["id"]}).json()
+    assert [t["content"] for t in ordered] == ["B", "A"]
+
+
 def test_delete_section_keeps_tasks():
     p = client.post("/api/projects", json={"name": "SecDel"}).json()
     s = client.post("/api/sections", json={"project_id": p["id"], "name": "S"}).json()
