@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Trash2, Bell } from "lucide-react";
+import { Trash2, Bell, Plus } from "lucide-react";
 import { api } from "../api";
 import { PRIORITIES, priorityColor, formatDue } from "../lib/priority";
+import { useClickOutside } from "../lib/useClickOutside";
 import AddTask from "./AddTask";
 
 export default function TaskItem({ task, subtasks = [], projectId, onChanged }) {
   const [editing, setEditing] = useState(false);
+  const [addingSub, setAddingSub] = useState(false);
 
   async function toggle() {
     if (task.completed) await api.uncompleteTask(task.id);
@@ -85,13 +87,24 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           </div>
         </div>
 
-        <button
-          onClick={remove}
-          className="mt-0.5 text-text-muted opacity-0 transition-opacity duration-150 hover:text-danger group-hover:opacity-100"
-          title="Delete task"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div className="mt-0.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          {task.parent_id == null && (
+            <button
+              onClick={() => setAddingSub(true)}
+              className="text-text-muted hover:text-text-primary"
+              title="Add subtask"
+            >
+              <Plus size={15} />
+            </button>
+          )}
+          <button
+            onClick={remove}
+            className="text-text-muted hover:text-danger"
+            title="Delete task"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Subtasks (one level deep) */}
@@ -104,12 +117,14 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
             onChanged={onChanged}
           />
         ))}
-        {task.parent_id == null && (
+        {addingSub && (
           <AddTask
             projectId={projectId}
             sectionId={task.section_id}
             parentId={task.id}
+            placeholder="Subtask name"
             onAdded={onChanged}
+            onClose={() => setAddingSub(false)}
           />
         )}
       </div>
@@ -126,6 +141,7 @@ function TaskEditor({ task, onDone, onChanged }) {
   const [reminder, setReminder] = useState(
     task.reminder_time ? task.reminder_time.slice(0, 16) : "",
   );
+  const ref = useClickOutside(onDone);
 
   async function save(e) {
     e.preventDefault();
@@ -143,7 +159,7 @@ function TaskEditor({ task, onDone, onChanged }) {
   }
 
   return (
-    <form onSubmit={save} className="my-1 rounded border border-border bg-surface p-3">
+    <form ref={ref} onSubmit={save} className="my-1 rounded border border-border bg-surface p-3">
       <input
         autoFocus
         value={content}

@@ -22,6 +22,7 @@ class Project(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     color: Mapped[str] = mapped_column(String(32), default="#c96442")
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
     order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -44,14 +45,14 @@ class Section(Base):
         ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
     order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     project: Mapped[Project] = relationship(back_populates="sections")
-    tasks: Mapped[list["Task"]] = relationship(
-        back_populates="section",
-        cascade="all, delete-orphan",
-    )
+    # No delete cascade: removing a section orphans its tasks to "no section"
+    # (FK is ondelete=SET NULL), it does not delete them.
+    tasks: Mapped[list["Task"]] = relationship(back_populates="section")
 
 
 class Task(Base):

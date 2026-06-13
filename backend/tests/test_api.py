@@ -78,6 +78,22 @@ def test_project_section_task_flow():
     assert client.get(f"/api/tasks/{t['id']}").status_code == 404
 
 
+def test_delete_section_keeps_tasks():
+    p = client.post("/api/projects", json={"name": "SecDel"}).json()
+    s = client.post("/api/sections", json={"project_id": p["id"], "name": "S"}).json()
+    t = client.post(
+        "/api/tasks",
+        json={"project_id": p["id"], "section_id": s["id"], "content": "keep me"},
+    ).json()
+
+    assert client.delete(f"/api/sections/{s['id']}").status_code == 204
+
+    # Task survives, just orphaned to no section.
+    got = client.get(f"/api/tasks/{t['id']}")
+    assert got.status_code == 200
+    assert got.json()["section_id"] is None
+
+
 def test_reminder_scheduling():
     from app.scheduler import _reminder_job_id, scheduler
 

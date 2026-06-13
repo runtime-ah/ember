@@ -1,19 +1,22 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
 import { api } from "../api";
 import { PRIORITIES } from "../lib/priority";
+import { useClickOutside } from "../lib/useClickOutside";
 
-export default function AddTask({ projectId, sectionId, parentId = null, onAdded }) {
-  const [open, setOpen] = useState(false);
+// Controlled task composer. The parent decides when it's shown (top + button,
+// a section's + , or a task's add-subtask +); this just renders the form.
+export default function AddTask({
+  projectId,
+  sectionId = null,
+  parentId = null,
+  onAdded,
+  onClose,
+  placeholder = "Task name",
+}) {
   const [content, setContent] = useState("");
   const [priority, setPriority] = useState(4);
   const [dueDate, setDueDate] = useState("");
-
-  function reset() {
-    setContent("");
-    setPriority(4);
-    setDueDate("");
-  }
+  const ref = useClickOutside(() => onClose?.());
 
   async function submit(e) {
     e.preventDefault();
@@ -27,32 +30,21 @@ export default function AddTask({ projectId, sectionId, parentId = null, onAdded
       priority,
       due_date: dueDate || null,
     });
-    reset();
+    // Clear but stay open for rapid entry; Cancel/Escape closes.
+    setContent("");
+    setPriority(4);
+    setDueDate("");
     onAdded();
-    // Keep the composer open for rapid entry.
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mt-1 flex items-center gap-1 px-1 py-1 text-sm text-text-muted transition-colors duration-150 hover:text-text-secondary"
-      >
-        <Plus size={14} /> {parentId ? "Add subtask" : "Add task"}
-      </button>
-    );
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="mt-1 rounded border border-border bg-surface p-3"
-    >
+    <form ref={ref} onSubmit={submit} className="mt-1 rounded border border-border bg-surface p-3">
       <input
         autoFocus
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder="Task name"
+        onKeyDown={(e) => e.key === "Escape" && onClose?.()}
+        placeholder={placeholder}
         className="mb-2 w-full bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none"
       />
       <div className="flex items-center gap-2">
@@ -76,10 +68,7 @@ export default function AddTask({ projectId, sectionId, parentId = null, onAdded
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              reset();
-              setOpen(false);
-            }}
+            onClick={() => onClose?.()}
             className="rounded px-3 py-1 text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
           >
             Cancel

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ProjectBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     color: str = "#c96442"
+    icon: str | None = None
     order: int = 0
 
 
@@ -18,6 +19,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     color: str | None = None
+    icon: str | None = None
     order: int | None = None
 
 
@@ -32,6 +34,7 @@ class ProjectOut(ProjectBase):
 
 class SectionBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    icon: str | None = None
     order: int = 0
 
 
@@ -41,6 +44,7 @@ class SectionCreate(SectionBase):
 
 class SectionUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    icon: str | None = None
     order: int | None = None
 
 

@@ -39,3 +39,23 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _run_lightweight_migrations()
+
+
+def _run_lightweight_migrations() -> None:
+    """create_all() never alters existing tables. For this single-user app we
+    handle additive columns ourselves with `ADD COLUMN ... IF NOT EXISTS`-style
+    checks, rather than pulling in Alembic."""
+    from sqlalchemy import inspect, text
+
+    additions = {
+        "projects": [("icon", "VARCHAR(64)")],
+        "sections": [("icon", "VARCHAR(64)")],
+    }
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table, columns in additions.items():
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            for name, ddl_type in columns:
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}"))
