@@ -24,18 +24,25 @@ export default function Sidebar({ projects, selectedId, onSelect, onProjectsChan
     setName("");
     setNewIcon(null);
   }
-  const addRef = useClickOutside(cancelAdd, adding);
 
   async function addProject(e) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
     await api.createProject({ name: trimmed, icon: newIcon, order: projects.length });
-    setName("");
-    setNewIcon(null);
-    setAdding(false);
+    cancelAdd();
     onProjectsChanged();
   }
+
+  // Click-off commits the new project (unless blank), then closes.
+  const addRef = useClickOutside(async () => {
+    const trimmed = name.trim();
+    if (trimmed) {
+      await api.createProject({ name: trimmed, icon: newIcon, order: projects.length });
+      onProjectsChanged();
+    }
+    cancelAdd();
+  }, adding);
 
   async function removeProject(e, id) {
     e.stopPropagation();
@@ -160,16 +167,23 @@ export default function Sidebar({ projects, selectedId, onSelect, onProjectsChan
 function ProjectEditor({ project, onDone, onSaved }) {
   const [name, setName] = useState(project.name);
   const [icon, setIcon] = useState(project.icon);
-  const ref = useClickOutside(onDone);
+
+  async function commit() {
+    const trimmed = name.trim();
+    if (trimmed) {
+      await api.updateProject(project.id, { name: trimmed, icon });
+      onSaved();
+    }
+    onDone();
+  }
 
   async function save(e) {
     e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    await api.updateProject(project.id, { name: trimmed, icon });
-    onSaved();
-    onDone();
+    await commit();
   }
+
+  // Click-off saves the edit (unless name was cleared), then closes.
+  const ref = useClickOutside(commit);
 
   return (
     <form ref={ref} onSubmit={save} className="flex items-center gap-1 rounded bg-elevated px-2 py-1.5">

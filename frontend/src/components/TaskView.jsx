@@ -69,10 +69,8 @@ export default function TaskView({ project }) {
     setSectionName("");
     setSectionIcon(null);
   }
-  const addSectionRef = useClickOutside(cancelAddSection, addingSection);
 
-  async function addSection(e) {
-    e.preventDefault();
+  async function createSection() {
     const name = sectionName.trim();
     if (!name) return;
     await api.createSection({
@@ -81,11 +79,20 @@ export default function TaskView({ project }) {
       icon: sectionIcon,
       order: sections.length,
     });
-    setSectionName("");
-    setSectionIcon(null);
-    setAddingSection(false);
     load();
   }
+
+  async function addSection(e) {
+    e.preventDefault();
+    await createSection();
+    cancelAddSection();
+  }
+
+  // Click-off commits the new section (unless blank), then closes.
+  const addSectionRef = useClickOutside(async () => {
+    await createSection();
+    cancelAddSection();
+  }, addingSection);
 
   async function removeSection(id) {
     if (!confirm("Delete this section? Its tasks move to no section.")) return;
@@ -200,7 +207,7 @@ export default function TaskView({ project }) {
             )}
 
             {!isCollapsed && (
-              <div className="mt-1.5">
+              <div className="mt-1 ml-3 border-l border-border/50 pl-3">
                 {renderTaskList(tasksFor(s.id))}
                 {adding === s.id && (
                   <AddTask
@@ -246,16 +253,23 @@ export default function TaskView({ project }) {
 function SectionEditor({ section, onDone, onSaved }) {
   const [name, setName] = useState(section.name);
   const [icon, setIcon] = useState(section.icon);
-  const ref = useClickOutside(onDone);
+
+  async function commit() {
+    const trimmed = name.trim();
+    if (trimmed) {
+      await api.updateSection(section.id, { name: trimmed, icon });
+      onSaved();
+    }
+    onDone();
+  }
 
   async function save(e) {
     e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    await api.updateSection(section.id, { name: trimmed, icon });
-    onSaved();
-    onDone();
+    await commit();
   }
+
+  // Click-off saves the edit (unless name was cleared), then closes.
+  const ref = useClickOutside(commit);
 
   return (
     <form ref={ref} onSubmit={save} className="flex items-center gap-2 rounded-md bg-surface px-3 py-2">

@@ -16,12 +16,10 @@ export default function AddTask({
   const [content, setContent] = useState("");
   const [priority, setPriority] = useState(4);
   const [dueDate, setDueDate] = useState("");
-  const ref = useClickOutside(() => onClose?.());
 
-  async function submit(e) {
-    e.preventDefault();
+  async function create() {
     const trimmed = content.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
     await api.createTask({
       project_id: projectId,
       section_id: sectionId,
@@ -30,12 +28,25 @@ export default function AddTask({
       priority,
       due_date: dueDate || null,
     });
-    // Clear but stay open for rapid entry; Cancel/Escape closes.
-    setContent("");
-    setPriority(4);
-    setDueDate("");
     onAdded();
+    return true;
   }
+
+  async function submit(e) {
+    e.preventDefault();
+    // Add button / Enter: create and stay open for rapid entry.
+    if (await create()) {
+      setContent("");
+      setPriority(4);
+      setDueDate("");
+    }
+  }
+
+  // Clicking off commits whatever's typed (unless blank), then closes.
+  const ref = useClickOutside(async () => {
+    await create();
+    onClose?.();
+  });
 
   return (
     <form

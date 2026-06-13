@@ -145,7 +145,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
       {/* Subtasks (one level deep) — collapsed by default */}
       {(expanded || addingSub) && (
-      <div className="ml-6">
+      <div className="ml-[19px] border-l border-border/70 pl-3">
         {subtasks.map((st) => (
           <TaskItem
             key={st.id}
@@ -179,22 +179,28 @@ function TaskEditor({ task, onDone, onChanged }) {
   const [reminder, setReminder] = useState(
     task.reminder_time ? task.reminder_time.slice(0, 16) : "",
   );
-  const ref = useClickOutside(onDone);
+  async function commit() {
+    const trimmed = content.trim();
+    if (trimmed) {
+      await api.updateTask(task.id, {
+        content: trimmed,
+        description: description.trim() || null,
+        priority,
+        due_date: dueDate || null,
+        reminder_time: reminder || null,
+      });
+      onChanged();
+    }
+    onDone();
+  }
 
   async function save(e) {
     e.preventDefault();
-    const trimmed = content.trim();
-    if (!trimmed) return;
-    await api.updateTask(task.id, {
-      content: trimmed,
-      description: description.trim() || null,
-      priority,
-      due_date: dueDate || null,
-      reminder_time: reminder || null,
-    });
-    onChanged();
-    onDone();
+    await commit();
   }
+
+  // Click-off saves the edit (unless content was cleared), then closes.
+  const ref = useClickOutside(commit);
 
   return (
     <form ref={ref} onSubmit={save} className="animate-pop my-1.5 rounded-lg border border-border bg-surface p-3 shadow-pop">
