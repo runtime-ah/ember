@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { useIsMobile } from "./lib/useIsMobile";
 import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
+import MobileCapture from "./components/MobileCapture";
 
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isMobile = useIsMobile();
 
   async function loadProjects(selectFirst = false) {
     try {
@@ -33,6 +36,12 @@ export default function App() {
   }, []);
 
   const selected = projects.find((p) => p.id === selectedId) ?? null;
+
+  if (isMobile) {
+    if (loading) return <p className="p-8 text-text-muted">Loading…</p>;
+    if (error) return <p className="p-6 text-danger">{error}</p>;
+    return <MobileCapture projects={projects} />;
+  }
 
   return (
     <div className="flex h-full">
