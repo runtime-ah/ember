@@ -3,15 +3,21 @@ import { Trash2, Bell, Plus, ChevronRight, ChevronDown } from "lucide-react";
 import { api } from "../api";
 import { PRIORITIES, priorityColor, formatDue } from "../lib/priority";
 import { useClickOutside } from "../lib/useClickOutside";
+import { isTaskExpanded, setTaskExpanded } from "../lib/expandedTasks";
 import AddTask from "./AddTask";
 
 export default function TaskItem({ task, subtasks = [], projectId, onChanged }) {
   const [editing, setEditing] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
-  // Subtasks start collapsed; the parent owns the open/closed state.
-  const [expanded, setExpanded] = useState(false);
+  // Subtasks default to collapsed; expanded state persists across reloads.
+  const [expanded, setExpanded] = useState(() => isTaskExpanded(task.id));
   const hasSubtasks = subtasks.length > 0;
   const isTopLevel = task.parent_id == null;
+
+  function setExpandedPersist(value) {
+    setExpanded(value);
+    setTaskExpanded(task.id, value);
+  }
 
   async function toggle() {
     if (task.completed) await api.uncompleteTask(task.id);
@@ -37,7 +43,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
         {isTopLevel &&
           (hasSubtasks ? (
             <button
-              onClick={() => setExpanded((v) => !v)}
+              onClick={() => setExpandedPersist(!expanded)}
               className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-text-muted transition-colors duration-150 hover:text-text-primary"
               title={expanded ? "Collapse subtasks" : "Expand subtasks"}
             >
@@ -118,7 +124,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           {isTopLevel && (
             <button
               onClick={() => {
-                setExpanded(true);
+                setExpandedPersist(true);
                 setAddingSub(true);
               }}
               className="text-text-muted hover:text-text-primary"
