@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* Style guide tokens (plan.md → UI Style Guide). Tailwind v4 reads these
+   and generates utilities like bg-base, text-secondary, border-border, etc. */
+@theme {
+  --color-base: #1a1a1a;
+  --color-surface: #222222;
+  --color-elevated: #2a2a2a;
+  --color-border: #333333;
+  --color-text-primary: #ececec;
+  --color-text-secondary: #999999;
+  --color-text-muted: #666666;
+  --color-accent: #c96442;
+  --color-accent-hover: #b5563a;
+  --color-danger: #e05c5c;
+
+  /* Priority dots */
+  --color-p1: #e05c5c;
+  --color-p2: #d8893f;
+  --color-p3: #5c84e0;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+/* Light theme — warm cream paper, not stark white. Overrides the dark token
+   defaults above when <html data-theme="light"> is set. Utilities reference
+   these vars, so the whole UI follows. */
+:root[data-theme="light"] {
+  --color-base: #f6f1e7;
+  --color-surface: #efe8d8;
+  --color-elevated: #e5dcc7;
+  --color-border: #ddd2bc;
+  --color-text-primary: #2a2722;
+  --color-text-secondary: #6f6757;
+  --color-text-muted: #a59b85;
+  --color-danger: #c2412e;
+}
+
+:root {
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom checkbox baseline reset */
+input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
