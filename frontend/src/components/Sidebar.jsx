@@ -108,7 +108,7 @@ export default function Sidebar({
 
   async function deleteLabel(e, id) {
     e.stopPropagation();
-    if (!confirm("Delete this label?")) return;
+    if (!confirm("Delete this tag?")) return;
     await api.deleteLabel(id);
     setLabels((prev) => prev.filter((l) => l.id !== id));
     // If this label is currently active, go back to first project.
@@ -222,7 +222,7 @@ export default function Sidebar({
               className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
             >
               {labelsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-              Labels
+              Tags
             </button>
             {labelsOpen &&
               labels.map((l) => (
@@ -270,7 +270,7 @@ export default function Sidebar({
                   <button
                     onClick={(e) => deleteLabel(e, l.id)}
                     className="opacity-0 text-text-muted hover:text-danger group-hover:opacity-100"
-                    title="Delete label"
+                    title="Delete tag"
                   >
                     <Trash2 size={11} />
                   </button>
@@ -278,13 +278,13 @@ export default function Sidebar({
               ))}
             {labels.length === 0 && labelsOpen && (
               <p className="px-2 py-1 text-[11px] text-text-muted">
-                No labels yet — type #tag in a task.
+                No tags yet — type #tag in a task.
               </p>
             )}
         </div>
         {collapsed && (
           <div
-            title="Labels"
+            title="Tags"
             className="hidden cursor-pointer items-center justify-center rounded-md px-2.5 py-2 text-text-secondary hover:bg-elevated/60 hover:text-text-primary md:flex"
           >
             <Tag size={16} />

@@ -98,7 +98,7 @@ export default function LabelPicker({ selected = [], onChange }) {
               remove(selected[selected.length - 1].id);
             }
           }}
-          placeholder={selected.length === 0 ? "Add labels…" : ""}
+          placeholder={selected.length === 0 ? "Add tags…" : ""}
           className="min-w-[60px] flex-1 bg-transparent text-xs text-text-secondary placeholder:text-text-muted focus:outline-none"
         />
       </div>
