@@ -29,12 +29,28 @@ export const api = {
     request(`/sections/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteSection: (id) => request(`/sections/${id}`, { method: "DELETE" }),
 
+  // Labels
+  listLabels: () => request("/labels"),
+  createLabel: (data) => request("/labels", { method: "POST", body: JSON.stringify(data) }),
+  updateLabel: (id, data) =>
+    request(`/labels/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteLabel: (id) => request(`/labels/${id}`, { method: "DELETE" }),
+
+  // Views (custom saved views)
+  listViews: () => request("/views"),
+  createView: (data) => request("/views", { method: "POST", body: JSON.stringify(data) }),
+  updateView: (id, data) =>
+    request(`/views/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteView: (id) => request(`/views/${id}`, { method: "DELETE" }),
+
   // Calendar (read-only iCloud via CalDAV)
   getCalendar: (start, end) => request(`/calendar?start=${start}&end=${end}`),
 
   // Tasks
   listTasks: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)),
+    ).toString();
     return request(`/tasks${qs ? `?${qs}` : ""}`);
   },
   createTask: (data) => request("/tasks", { method: "POST", body: JSON.stringify(data) }),

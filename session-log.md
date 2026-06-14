@@ -1,134 +1,103 @@
-# Session Log — 2026-06-13
+# Session Log — 2026-06-14
 
-A full day building the self-hosted task manager (see [plan.md](plan.md)). We went
-from an empty repo to Phase 1 complete + the Phase 2 MCP server + a calendar view,
-plus a UI refresh and a real Todoist data import.
+Building on Phase 1 + 2 foundation from yesterday. Added labels/tagging, NL input parsing,
+effort field, reminder in the add composer, better time picker, recurring tasks, and
+Today/Upcoming filtered views.
 
 ---
 
 ## What we built today
 
-Roughly in order. Each bullet maps to one or more commits.
+### Backend (additive migrations — no data loss)
 
-### Core app (Phase 1)
-- **Backend** (FastAPI + SQLite): models for Project / Section / Task (one-level
-  subtasks, FK cascades, SQLite FK enforcement), full CRUD REST API with filtering,
-  complete/uncomplete, reorder, and subtask-depth validation. Env-driven config
-  (`TODO_*`). Pytest suite (**6 tests passing**).
-- **Frontend** (React 19 + Vite + Tailwind v4): project sidebar, section-grouped
-  task list, add/edit/complete/delete, custom checkboxes, priority dots, due-date
-  badges, subtasks — all using the design-guide tokens.
-- **Collapsible sidebar** with smooth width animation; state persists.
+- **`labels` table** — `id, name, color, order, created_at`
+- **`task_labels` junction** — many-to-many tasks ↔ labels (cascade deletes)
+- **`views` table** — `id, name, icon, filter_json, order` (for future custom views)
+- **`tasks.effort`** — nullable Float (hours)
+- **`tasks.recurrence_rule`** — nullable String (`"daily"`, `"weekdays"`, `"weekly"`, `"biweekly"`, `"monthly"`)
+- **`/api/labels`** router — full CRUD (409 on duplicate name)
+- **`/api/views`** router — full CRUD
+- **`GET /api/tasks`** new query params: `label_id`, `due_before`, `due_after`
+- **`POST /api/tasks/:id/complete`** — if task has `recurrence_rule`, spawns a new task with next due date rolled forward; original is marked complete
+- All 6 backend tests still passing
 
-### Reminders + brief
-- **Reminders engine**: per-task `reminder_time`, fired by APScheduler, pushed via
-  **ntfy**. CRUD-synced (create/edit schedules, complete/delete cancels); past-due
-  reminders skipped on restart. Settable from the task editor (bell field).
-- **Daily brief**: cron at `TODO_BRIEF_TIME`, pushed via ntfy; also `GET /api/brief`
-  (overdue / due today / important undated / iCloud events).
-- **Verified live**: ntfy push delivery confirmed; the user installed the ntfy app
-  and subscribed to the topic (in `backend/.env`). All three test pushes landed,
-  including a real APScheduler-fired timed reminder.
+### Frontend
 
-### UI / UX
-- **Light/dark theme toggle** — warm cream light mode (not stark white), persists,
-  honors OS preference on first load.
-- **Icons for projects & sections** — curated lucide set + icon picker; shown in the
-  sidebar, collapsed rail, headers, and section banners. Added a lightweight additive
-  DB migration so the new `icon` column landed without data loss.
-- **Add-task cleanup** — one top-level "+ Add task", per-task hover "+" for subtasks,
-  removed the repeated inline buttons.
-- **Sections as collapsible banners** with task counts and hover actions.
-- **Refined-warm design system** — stronger type hierarchy, soft elevation
-  (`shadow-soft`/`shadow-pop`), `accent-subtle` active tint, due/reminder pills,
-  pop-in micro-interactions, themed scrollbars.
-- **Denser task list with subtle row dividers** (Todoist-style).
-- **Collapsible subtasks** (collapsed by default, count badge, expand state persists).
-- **Hierarchy** — indentation + subtle connector lines for section → task → subtask.
-- **Drag-to-reorder** tasks within a group (native HTML5 DnD, persisted).
-- **Click-off behavior** — now **commits** (saves new items / edits unless blank);
-  Escape still cancels. (We first made it dismiss, then reversed per feedback.)
+**NL parser** (`src/lib/nlParser.js`):
+- Detects `#tagname` → labels
+- `today`, `tomorrow`, weekday names, `next monday`, `jan 15` → due date
+- `9am`, `2:30pm`, `14:00` → due time
+- `p1`–`p4` → priority
+- `2h`, `1.5h`, `30m` → effort (hours)
+- `daily`, `every day`, `every tuesday`, `weekly`, `weekdays`, `biweekly`, `monthly` → recurrence
+- Returns `{ content, labels, dueDate, dueTime, priority, effort, recurrenceRule }` with raw input stripped of consumed tokens
 
-### Mobile
-- **Mobile capture view** — phone-width "Quick add" screen (project chips, task field,
-  priority chips, due date, "Just added" confirmation). Desktop unchanged ≥ 640px.
+**TimePicker** (`src/components/TimePicker.jsx`):
+- Replaces `datetime-local` with a clean popover of preset times (7am–10pm, 30-min increments)
+- Shows formatted "9:30 AM" style; "Clear" option when a time is set
 
-### Phase 2
-- **MCP server** (`mcp_server/`, FastMCP streamable-HTTP) wrapping the backend over
-  HTTP. Tools: `get_projects`, `get_tasks`, `add_task`, `update_task`, `complete_task`,
-  `get_brief`. Verified against the backend and via a full MCP client handshake.
-  Intended to run on the Pi and connect from Claude.ai over Tailscale.
+**LabelPicker** (`src/components/LabelPicker.jsx`):
+- Inline tag input: shows existing labels as removable pills
+- Dropdown filters as you type; "Create '#name'" at the bottom if name doesn't exist
+- Creates labels on-the-fly via the API
 
-### Calendar
-- **Calendar view** (separate sidebar entry) — month grid + week columns, prev/next/
-  Today nav, week/month toggle. Shows iCloud events **and** tasks with due dates;
-  today highlighted. Shows a "not connected" hint until CalDAV creds are set.
-- Backend: `app/ical.py` (range CalDAV fetch + short TTL cache, shared with the brief)
-  and `GET /api/calendar?start&end` returning `{configured, events}`.
+**AddTask** — fully redesigned:
+- NL chips row: detected tokens show as dismissible chips below the input in real-time
+- Row 1: Priority · Due date · TimePicker · Effort (hours) · Recurrence dropdown
+- Row 2: LabelPicker
+- Row 3: Bell icon · Reminder date · Reminder TimePicker (shows when date is set)
+- NL overrides manual fields; manual fields override NL
 
-### Data
-- **Imported the user's Todoist** (projects/sections/tasks, priorities, due dates,
-  subtask relationships, section icons) via the Todoist MCP → backend API. The user
-  then curated it down to a single **To Do** project (35 tasks). One-time snapshot,
-  not a live sync.
+**TaskItem / TaskEditor** — updated:
+- Metadata row: due date · reminder bell · `~2h` effort pill · label pills
+- Recurring tasks show a small ↺ icon
+- TaskEditor has same fields as AddTask: effort, recurrence, LabelPicker, split reminder
+
+**FilteredTaskView** (`src/components/FilteredTaskView.jsx`):
+- Cross-project filtered task list (no sections)
+- Groups by project when multiple projects have results
+- Used for Today, Upcoming, label views
+
+**Sidebar** — restructured:
+- Top: Today (clock icon) · Upcoming (calendar icon)
+- Separator → Calendar
+- Separator → Labels section (collapsible, shows all labels with color dot, delete on hover)
+- "No labels yet — type #tag in a task." hint when empty
+- Separator → Projects (with + to add)
+
+**App.jsx** — routing updated:
+- `activeView: { type: 'today' | 'upcoming' | 'calendar' | 'label', id?, name? } | null`
+- Today: `due_before=today, completed=false`
+- Upcoming: `due_after=tomorrow, due_before=+7days, completed=false`
+- Label: `label_id=N, completed=false`
 
 ---
 
 ## Current state
 
-- **Stack**: FastAPI + SQLite backend, React/Vite/Tailwind frontend, APScheduler,
-  ntfy, CalDAV (read), FastMCP. Monorepo: `backend/`, `frontend/`, `mcp_server/`.
-- **Running locally** (dev servers on the Mac): backend `:8000`, frontend `:5173`,
-  MCP `:8765` (started on demand). These are dev servers — they drop when the machine
-  sleeps; durable hosting is the Pi (not done yet).
-- **Configured**: ntfy (topic in `backend/.env`, phone subscribed).
-- **Not configured**: iCloud CalDAV (needs an app-specific password) → calendar shows
-  tasks only until then.
-- **Data**: one "To Do" project with the imported Todoist tasks. SQLite at
-  `backend/todo.db` (gitignored).
-- **Tests**: backend 6/6 passing.
+- **All features from plan confirmed working** via API and screenshots:
+  - Created "work" label, tagged "Cut down the tree" task via API
+  - Label shows in sidebar; clicking `#work` shows filtered `#work` view
+  - Today view shows overdue tasks correctly
+  - NL parser chip UI working (screenshot confirmed: `#work | Tomorrow | P1× | ~2h`)
+- **6/6 backend tests passing**
 
 ---
 
 ## Backlog
 
-**Next up (decided): Natural-language quick add** — parse `call mom tomorrow 5pm p1`
-into date / priority / (later) recurrence on input, in the composer and mobile capture.
+**Next up:**
+- **iCloud CalDAV creds** — add to `backend/.env`, restart → calendar shows events
+- **Pi deployment** — systemd or docker-compose; makes reminders durable and MCP reachable
 
-Tier 1 (high value, fits the app):
-- **Recurring tasks** — "every Tuesday", "every 2 weeks", weekdays; completing rolls
-  to next date. Prerequisite for natural-language add to fully pay off. *(Note: we
-  picked natural-language add to go first, but recurring is the bigger unlock — worth
-  reconsidering order in the morning.)*
-- **Today / Upcoming smart view** — cross-project overdue + due-today (+ next 7 days),
-  next to the Calendar entry. `/api/brief` already computes most of it.
+**Near-term:**
+- Custom saved views (DB model done, router done, UI pending — just needs a view editor + sidebar section)
+- Ntfy tap-to-complete / deep-link (needs Pi base URL)
+- Today view: include tasks with no due date but high priority (currently brief does this, view doesn't)
+- Label colour picker (currently defaults to `#999999` for NL-created labels)
 
-Tier 2 (later):
-- **Labels + saved filters** — `@errand`, `@15min`, saved queries across projects.
-- **Ntfy tap-to-complete / open** — `Click` + `Actions` on reminder pushes (a
-  "Complete" button from the lock screen). Needs the Pi/Tailscale base URL and
-  per-task frontend routing. The `send_push` helper already accepts a `click` param.
-- **Drag a task onto a calendar day** to set/move its due date.
-- **Merge calendar into the task views** (we built it as a separate view "for now").
+**Tier 1 done:** Labels, NL parsing, Effort, Recurring tasks, Today/Upcoming views, Reminder in AddTask, TimePicker redesign
 
-Tier 3 (intentionally skipping — cuts against the minimalist feel):
-- Pomodoro timer, habit tracker, gamification/karma.
+**Tier 2 (later):** Custom view editor UI, Drag task onto calendar day, Merge calendar into task views
 
-Operational / pending input:
-- **iCloud CalDAV creds** — add `TODO_CALDAV_USERNAME` / `TODO_CALDAV_PASSWORD`
-  (app-specific password from appleid.apple.com) to `backend/.env`, then restart the
-  backend; first real exercise of the CalDAV path — may need iCloud-quirk debugging.
-- **Pi deployment** — make backend + MCP run durably over Tailscale (systemd or
-  docker-compose). This is what turns it into a real daily driver and makes the MCP
-  connector reachable from Claude.ai.
-
----
-
-## Notes / gotchas
-
-- **No auth** by design — Tailscale is the security boundary (single user).
-- **Reminders/brief** depend on the backend process staying up (APScheduler is
-  in-process) — another reason the Pi deployment matters.
-- **`.env` holds secrets** (ntfy topic; later CalDAV creds) and is gitignored.
-- **Design preferences** are saved to memory: refined-warm minimalist, keep cream/dark
-  palette, incremental changes, click-off commits (not discards), show hierarchy.
+**Tier 3 (skip):** Pomodoro, gamification

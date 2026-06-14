@@ -1,4 +1,5 @@
-from datetime import date, datetime
+from calendar import monthrange
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -31,6 +32,39 @@ def _validate_parent(db: Session, parent_id: int | None) -> None:
         )
 
 
+def _sync_labels(db: Session, task: models.Task, label_ids: list[int]) -> None:
+    if not label_ids:
+        task.labels = []
+        return
+    labels = db.scalars(
+        select(models.Label).where(models.Label.id.in_(label_ids))
+    ).all()
+    task.labels = list(labels)
+
+
+def _next_due_date(rule: str, current: date | None) -> date:
+    base = current or date.today()
+    if rule == "daily":
+        return base + timedelta(days=1)
+    if rule == "weekdays":
+        d = base + timedelta(days=1)
+        while d.weekday() >= 5:
+            d += timedelta(days=1)
+        return d
+    if rule == "weekly":
+        return base + timedelta(weeks=1)
+    if rule == "biweekly":
+        return base + timedelta(weeks=2)
+    if rule == "monthly":
+        y, m, d = base.year, base.month, base.day
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+        d = min(d, monthrange(y, m)[1])
+        return date(y, m, d)
+    return base + timedelta(days=1)
+
+
 @router.get("", response_model=list[schemas.TaskOut])
 def list_tasks(
     project_id: int | None = None,
@@ -38,6 +72,9 @@ def list_tasks(
     parent_id: int | None = None,
     priority: int | None = None,
     due_date: date | None = None,
+    due_before: date | None = None,
+    due_after: date | None = None,
+    label_id: int | None = None,
     completed: bool | None = None,
     db: Session = Depends(get_db),
 ):
@@ -52,6 +89,12 @@ def list_tasks(
         stmt = stmt.where(models.Task.priority == priority)
     if due_date is not None:
         stmt = stmt.where(models.Task.due_date == due_date)
+    if due_before is not None:
+        stmt = stmt.where(models.Task.due_date <= due_before)
+    if due_after is not None:
+        stmt = stmt.where(models.Task.due_date >= due_after)
+    if label_id is not None:
+        stmt = stmt.where(models.Task.labels.any(models.Label.id == label_id))
     if completed is not None:
         stmt = stmt.where(models.Task.completed == completed)
     stmt = stmt.order_by(models.Task.order, models.Task.id)
@@ -63,8 +106,11 @@ def create_task(payload: schemas.TaskCreate, db: Session = Depends(get_db)):
     if db.get(models.Project, payload.project_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     _validate_parent(db, payload.parent_id)
-    task = models.Task(**payload.model_dump())
+    data = payload.model_dump(exclude={"label_ids"})
+    task = models.Task(**data)
     db.add(task)
+    db.flush()  # get task.id before syncing labels
+    _sync_labels(db, task, payload.label_ids)
     db.commit()
     db.refresh(task)
     sync_reminder(task)
@@ -79,11 +125,13 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 @router.patch("/{task_id}", response_model=schemas.TaskOut)
 def update_task(task_id: int, payload: schemas.TaskUpdate, db: Session = Depends(get_db)):
     task = _get_or_404(db, task_id)
-    data = payload.model_dump(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True, exclude={"label_ids"})
     if "project_id" in data and db.get(models.Project, data["project_id"]) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     for field, value in data.items():
         setattr(task, field, value)
+    if payload.label_ids is not None:
+        _sync_labels(db, task, payload.label_ids)
     db.commit()
     db.refresh(task)
     sync_reminder(task)
@@ -98,6 +146,27 @@ def complete_task(task_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(task)
     remove_reminder(task.id)
+
+    # Spawn the next occurrence for top-level recurring tasks.
+    if task.recurrence_rule and task.parent_id is None:
+        next_due = _next_due_date(task.recurrence_rule, task.due_date)
+        next_task = models.Task(
+            project_id=task.project_id,
+            section_id=task.section_id,
+            content=task.content,
+            description=task.description,
+            priority=task.priority,
+            effort=task.effort,
+            recurrence_rule=task.recurrence_rule,
+            due_date=next_due,
+            order=task.order,
+        )
+        next_task.labels = list(task.labels)
+        db.add(next_task)
+        db.commit()
+        db.refresh(next_task)
+        sync_reminder(next_task)
+
     return task
 
 

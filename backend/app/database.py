@@ -51,6 +51,10 @@ def _run_lightweight_migrations() -> None:
     additions = {
         "projects": [("icon", "VARCHAR(64)")],
         "sections": [("icon", "VARCHAR(64)")],
+        "tasks": [
+            ("effort", "FLOAT"),
+            ("recurrence_rule", "VARCHAR(64)"),
+        ],
     }
     inspector = inspect(engine)
     with engine.begin() as conn:

@@ -4,12 +4,24 @@ import { useIsMobile } from "./lib/useIsMobile";
 import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
+import FilteredTaskView from "./components/FilteredTaskView";
 import MobileCapture from "./components/MobileCapture";
+
+// activeView is null (project selected) or { type: 'today' | 'upcoming' | 'calendar' | 'label', id?: number }
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+function futureDateIso(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [activeView, setActiveView] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isMobile = useIsMobile();
@@ -21,7 +33,6 @@ export default function App() {
       if (selectFirst && data.length && selectedId === null) {
         setSelectedId(data[0].id);
       }
-      // If the selected project was deleted, fall back to the first one.
       if (selectedId !== null && !data.some((p) => p.id === selectedId)) {
         setSelectedId(data[0]?.id ?? null);
       }
@@ -39,6 +50,64 @@ export default function App() {
 
   const selected = projects.find((p) => p.id === selectedId) ?? null;
 
+  function handleSelectProject(id) {
+    setActiveView(null);
+    setSelectedId(id);
+  }
+
+  function handleOpenView(view) {
+    setActiveView(view);
+    setSelectedId(null);
+  }
+
+  function handleOpenCalendar() {
+    setActiveView({ type: "calendar" });
+    setSelectedId(null);
+  }
+
+  function renderMain() {
+    if (!activeView && selected) return <TaskView key={selected.id} project={selected} />;
+    if (!activeView) return <p className="p-8 text-text-muted">No projects yet — create one in the sidebar.</p>;
+
+    if (activeView.type === "calendar") return <CalendarView />;
+
+    if (activeView.type === "today") {
+      const today = todayIso();
+      return (
+        <FilteredTaskView
+          title="Today"
+          params={{ due_before: today }}
+          emptyMessage="Nothing due today."
+        />
+      );
+    }
+
+    if (activeView.type === "upcoming") {
+      const tomorrow = futureDateIso(1);
+      const weekOut = futureDateIso(7);
+      return (
+        <FilteredTaskView
+          title="Upcoming"
+          params={{ due_after: tomorrow, due_before: weekOut }}
+          emptyMessage="Nothing coming up in the next 7 days."
+        />
+      );
+    }
+
+    if (activeView.type === "label") {
+      return (
+        <FilteredTaskView
+          key={activeView.id}
+          title={`#${activeView.name ?? "label"}`}
+          params={{ label_id: activeView.id }}
+          emptyMessage="No tasks with this label."
+        />
+      );
+    }
+
+    return null;
+  }
+
   if (isMobile) {
     if (loading) return <p className="p-8 text-text-muted">Loading…</p>;
     if (error) return <p className="p-6 text-danger">{error}</p>;
@@ -49,32 +118,19 @@ export default function App() {
     <div className="flex h-full">
       <Sidebar
         projects={projects}
-        selectedId={showCalendar ? null : selectedId}
-        onSelect={(id) => {
-          setShowCalendar(false);
-          setSelectedId(id);
-        }}
+        selectedId={activeView ? null : selectedId}
+        onSelect={handleSelectProject}
         onProjectsChanged={loadProjects}
-        calendarActive={showCalendar}
-        onOpenCalendar={() => setShowCalendar(true)}
+        calendarActive={activeView?.type === "calendar"}
+        onOpenCalendar={handleOpenCalendar}
+        activeView={activeView?.type !== "calendar" ? activeView : null}
+        onOpenView={handleOpenView}
       />
       <main className="flex-1 overflow-y-auto">
         {error && (
-          <div className="m-4 rounded border border-danger/40 p-3 text-danger">
-            {error}
-          </div>
+          <div className="m-4 rounded border border-danger/40 p-3 text-danger">{error}</div>
         )}
-        {loading ? (
-          <p className="p-8 text-text-muted">Loading…</p>
-        ) : showCalendar ? (
-          <CalendarView />
-        ) : selected ? (
-          <TaskView key={selected.id} project={selected} />
-        ) : (
-          <p className="p-8 text-text-muted">
-            No projects yet — create one in the sidebar.
-          </p>
-        )}
+        {loading ? <p className="p-8 text-text-muted">Loading…</p> : renderMain()}
       </main>
     </div>
   );

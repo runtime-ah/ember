@@ -1,15 +1,24 @@
 import { useState } from "react";
-import { Trash2, Bell, Plus, ChevronRight, ChevronDown } from "lucide-react";
+import { Trash2, Bell, Plus, ChevronRight, ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { PRIORITIES, priorityColor, formatDue } from "../lib/priority";
 import { useClickOutside } from "../lib/useClickOutside";
 import { isTaskExpanded, setTaskExpanded } from "../lib/expandedTasks";
 import AddTask from "./AddTask";
+import LabelPicker from "./LabelPicker";
+import TimePicker from "./TimePicker";
+
+const RECURRENCE_LABELS = {
+  daily: "Daily",
+  weekdays: "Weekdays",
+  weekly: "Weekly",
+  biweekly: "Biweekly",
+  monthly: "Monthly",
+};
 
 export default function TaskItem({ task, subtasks = [], projectId, onChanged }) {
   const [editing, setEditing] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
-  // Subtasks default to collapsed; expanded state persists across reloads.
   const [expanded, setExpanded] = useState(() => isTaskExpanded(task.id));
   const hasSubtasks = subtasks.length > 0;
   const isTopLevel = task.parent_id == null;
@@ -52,6 +61,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           ) : (
             <span className="h-4 w-4 shrink-0" aria-hidden="true" />
           ))}
+
         <button
           onClick={toggle}
           className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-all duration-150 hover:scale-110"
@@ -70,13 +80,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
         <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setEditing(true)}>
           <div className="flex items-center gap-2">
-            <span
-              className={
-                task.completed
-                  ? "text-text-muted line-through"
-                  : "text-text-primary"
-              }
-            >
+            <span className={task.completed ? "text-text-muted line-through" : "text-text-primary"}>
               {task.content}
             </span>
             {dotColor && !task.completed && (
@@ -86,17 +90,23 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
                 title={`P${task.priority}`}
               />
             )}
+            {task.recurrence_rule && !task.completed && (
+              <RefreshCw size={11} className="shrink-0 text-text-muted" title={RECURRENCE_LABELS[task.recurrence_rule]} />
+            )}
             {hasSubtasks && !expanded && (
               <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
                 {subtasks.length}
               </span>
             )}
           </div>
+
           {task.description && (
             <p className="truncate text-xs text-text-secondary">{task.description}</p>
           )}
-          {(due || (task.reminder_time && !task.completed)) && (
-            <div className="mt-1 flex items-center gap-1.5">
+
+          {/* Metadata row: due date · reminder · effort · labels */}
+          {(due || (task.reminder_time && !task.completed) || task.effort || task.labels?.length > 0) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               {due && (
                 <span
                   className={`nums inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
@@ -116,6 +126,20 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
                   <Bell size={11} />
                 </span>
               )}
+              {task.effort && !task.completed && (
+                <span className="nums inline-flex items-center rounded-md bg-elevated px-1.5 py-0.5 text-[11px] text-text-muted">
+                  ~{fmtEffort(task.effort)}
+                </span>
+              )}
+              {task.labels?.map((l) => (
+                <span
+                  key={l.id}
+                  className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                  style={{ backgroundColor: l.color + "28", color: l.color }}
+                >
+                  #{l.name}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -123,48 +147,36 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
         <div className="mt-0.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
           {isTopLevel && (
             <button
-              onClick={() => {
-                setExpandedPersist(true);
-                setAddingSub(true);
-              }}
+              onClick={() => { setExpandedPersist(true); setAddingSub(true); }}
               className="text-text-muted hover:text-text-primary"
               title="Add subtask"
             >
               <Plus size={15} />
             </button>
           )}
-          <button
-            onClick={remove}
-            className="text-text-muted hover:text-danger"
-            title="Delete task"
-          >
+          <button onClick={remove} className="text-text-muted hover:text-danger" title="Delete task">
             <Trash2 size={14} />
           </button>
         </div>
       </div>
 
-      {/* Subtasks (one level deep) — collapsed by default */}
+      {/* Subtasks */}
       {(expanded || addingSub) && (
-      <div className="ml-[19px] border-l border-border/70 pl-3">
-        {subtasks.map((st) => (
-          <TaskItem
-            key={st.id}
-            task={st}
-            projectId={projectId}
-            onChanged={onChanged}
-          />
-        ))}
-        {addingSub && (
-          <AddTask
-            projectId={projectId}
-            sectionId={task.section_id}
-            parentId={task.id}
-            placeholder="Subtask name"
-            onAdded={onChanged}
-            onClose={() => setAddingSub(false)}
-          />
-        )}
-      </div>
+        <div className="ml-[19px] border-l border-border/70 pl-3">
+          {subtasks.map((st) => (
+            <TaskItem key={st.id} task={st} projectId={projectId} onChanged={onChanged} />
+          ))}
+          {addingSub && (
+            <AddTask
+              projectId={projectId}
+              sectionId={task.section_id}
+              parentId={task.id}
+              placeholder="Subtask name"
+              onAdded={onChanged}
+              onClose={() => setAddingSub(false)}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -175,10 +187,26 @@ function TaskEditor({ task, onDone, onChanged }) {
   const [description, setDescription] = useState(task.description ?? "");
   const [priority, setPriority] = useState(task.priority);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
-  // datetime-local wants "YYYY-MM-DDTHH:MM"; the API returns full ISO seconds.
-  const [reminder, setReminder] = useState(
-    task.reminder_time ? task.reminder_time.slice(0, 16) : "",
+  const [dueTime, setDueTime] = useState(
+    task.due_time ? task.due_time.slice(0, 5) : null,
   );
+  const [labels, setLabels] = useState(task.labels ?? []);
+  const [effort, setEffort] = useState(task.effort != null ? String(task.effort) : "");
+  const [recurrenceRule, setRecurrenceRule] = useState(task.recurrence_rule ?? "");
+  // Reminder: split stored datetime into date + time parts for the pickers.
+  const [reminderDate, setReminderDate] = useState(
+    task.reminder_time ? task.reminder_time.slice(0, 10) : "",
+  );
+  const [reminderTime, setReminderTime] = useState(
+    task.reminder_time ? task.reminder_time.slice(11, 16) : null,
+  );
+
+  function buildReminderTime() {
+    if (!reminderDate) return null;
+    const t = reminderTime ?? "09:00";
+    return `${reminderDate}T${t}:00`;
+  }
+
   async function commit() {
     const trimmed = content.trim();
     if (trimmed) {
@@ -187,7 +215,11 @@ function TaskEditor({ task, onDone, onChanged }) {
         description: description.trim() || null,
         priority,
         due_date: dueDate || null,
-        reminder_time: reminder || null,
+        due_time: dueTime || null,
+        reminder_time: buildReminderTime(),
+        effort: effort ? parseFloat(effort) : null,
+        recurrence_rule: recurrenceRule || null,
+        label_ids: labels.map((l) => l.id),
       });
       onChanged();
     }
@@ -199,11 +231,14 @@ function TaskEditor({ task, onDone, onChanged }) {
     await commit();
   }
 
-  // Click-off saves the edit (unless content was cleared), then closes.
   const ref = useClickOutside(commit);
 
   return (
-    <form ref={ref} onSubmit={save} className="animate-pop my-1.5 rounded-lg border border-border bg-surface p-3 shadow-pop">
+    <form
+      ref={ref}
+      onSubmit={save}
+      className="animate-pop my-1.5 rounded-lg border border-border bg-surface p-3 shadow-pop"
+    >
       <input
         autoFocus
         value={content}
@@ -217,6 +252,8 @@ function TaskEditor({ task, onDone, onChanged }) {
         rows={2}
         className="mb-2 w-full resize-none rounded bg-elevated px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:outline-none"
       />
+
+      {/* Row 1: Priority · Due date · Due time · Effort · Recurrence */}
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={priority}
@@ -224,42 +261,94 @@ function TaskEditor({ task, onDone, onChanged }) {
           className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
         >
           {PRIORITIES.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
+            <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
+
         <input
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
           className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
         />
-        <label className="flex items-center gap-1 text-xs text-text-muted">
-          <Bell size={12} />
-          <input
-            type="datetime-local"
-            value={reminder}
-            onChange={(e) => setReminder(e.target.value)}
-            className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
-          />
-        </label>
-        <div className="ml-auto flex items-center gap-2">
+
+        <TimePicker value={dueTime} onChange={setDueTime} />
+
+        <input
+          type="number"
+          min="0.25"
+          max="24"
+          step="0.25"
+          value={effort}
+          onChange={(e) => setEffort(e.target.value)}
+          placeholder="Effort (h)"
+          className="w-24 rounded bg-elevated px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:outline-none"
+        />
+
+        <select
+          value={recurrenceRule}
+          onChange={(e) => setRecurrenceRule(e.target.value)}
+          className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
+        >
+          <option value="">No repeat</option>
+          <option value="daily">Daily</option>
+          <option value="weekdays">Weekdays</option>
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Biweekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+
+      {/* Row 2: Labels */}
+      <div className="mt-2">
+        <LabelPicker selected={labels} onChange={setLabels} />
+      </div>
+
+      {/* Row 3: Reminder */}
+      <div className="mt-2 flex items-center gap-2">
+        <Bell size={12} className="shrink-0 text-text-muted" />
+        <input
+          type="date"
+          value={reminderDate}
+          onChange={(e) => setReminderDate(e.target.value)}
+          className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
+        />
+        {reminderDate && (
+          <TimePicker value={reminderTime} onChange={setReminderTime} placeholder="9:00 AM" />
+        )}
+        {reminderDate && (
           <button
             type="button"
-            onClick={onDone}
-            className="rounded px-3 py-1 text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
+            onClick={() => { setReminderDate(""); setReminderTime(null); }}
+            className="text-text-muted hover:text-danger"
+            title="Clear reminder"
           >
-            Cancel
+            <X size={12} />
           </button>
-          <button
-            type="submit"
-            className="rounded bg-accent px-3 py-1 text-xs text-white transition-colors duration-150 hover:bg-accent-hover"
-          >
-            Save
-          </button>
-        </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded px-3 py-1 text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="rounded bg-accent px-3 py-1 text-xs text-white transition-colors duration-150 hover:bg-accent-hover"
+        >
+          Save
+        </button>
       </div>
     </form>
   );
+}
+
+function fmtEffort(h) {
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  if (h === Math.floor(h)) return `${h}h`;
+  return `${h}h`;
 }

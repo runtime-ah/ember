@@ -2,6 +2,58 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# --- Labels ---
+
+
+class LabelBase(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    color: str = "#999999"
+    order: int = 0
+
+
+class LabelCreate(LabelBase):
+    pass
+
+
+class LabelUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    color: str | None = None
+    order: int | None = None
+
+
+class LabelOut(LabelBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+
+
+# --- Views ---
+
+
+class ViewBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    icon: str | None = None
+    filter_json: str = "{}"
+    order: int = 0
+
+
+class ViewCreate(ViewBase):
+    pass
+
+
+class ViewUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    icon: str | None = None
+    filter_json: str | None = None
+    order: int | None = None
+
+
+class ViewOut(ViewBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+
+
 # --- Projects ---
 
 
@@ -62,6 +114,8 @@ class TaskBase(BaseModel):
     content: str = Field(min_length=1, max_length=500)
     description: str | None = None
     priority: int = Field(default=4, ge=1, le=4)
+    effort: float | None = None
+    recurrence_rule: str | None = None
     due_date: date | None = None
     due_time: time | None = None
     reminder_time: datetime | None = None
@@ -72,18 +126,22 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     project_id: int
+    label_ids: list[int] = []
 
 
 class TaskUpdate(BaseModel):
     content: str | None = Field(default=None, min_length=1, max_length=500)
     description: str | None = None
     priority: int | None = Field(default=None, ge=1, le=4)
+    effort: float | None = None
+    recurrence_rule: str | None = None
     due_date: date | None = None
     due_time: time | None = None
     reminder_time: datetime | None = None
     project_id: int | None = None
     section_id: int | None = None
     order: int | None = None
+    label_ids: list[int] | None = None
 
 
 class TaskOut(TaskBase):
@@ -93,6 +151,7 @@ class TaskOut(TaskBase):
     completed: bool
     completed_at: datetime | None
     created_at: datetime
+    labels: list[LabelOut] = []
 
 
 class ReorderItem(BaseModel):

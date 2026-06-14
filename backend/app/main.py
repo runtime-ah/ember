@@ -1,16 +1,21 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from datetime import date
+
+FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
 
 from app import ical
 from app.brief import build_brief
 from app.config import settings
 from app.database import get_db, init_db
-from app.routers import projects, sections, tasks
+from app.routers import labels, projects, sections, tasks, views
 from app.scheduler import shutdown_scheduler, start_scheduler
 
 
@@ -32,6 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(labels.router)
+app.include_router(views.router)
 app.include_router(projects.router)
 app.include_router(sections.router)
 app.include_router(tasks.router)
@@ -55,3 +62,15 @@ def get_calendar(start: date, end: date):
     """iCloud calendar events between start and end (inclusive). Returns
     `configured: false` (with empty events) until CalDAV credentials are set."""
     return {"configured": ical.is_configured(), "events": ical.fetch_events(start, end)}
+
+
+# Serve the built React frontend. Must be last so API routes take priority.
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        candidate = FRONTEND_DIST / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")
