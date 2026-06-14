@@ -62,6 +62,10 @@
   box-shadow: var(--shadow-pop);
 }
 
+html {
+  font-size: 18px; /* scale base rem from 16→18px so all spacing/text is proportionally larger */
+}
+
 html,
 body,
 #root {
@@ -84,7 +88,7 @@ body {
   background-color: var(--color-base);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 0.875rem; /* 15.75px at 18px base — scales with html font-size */
   line-height: 1.55;
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
