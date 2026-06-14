@@ -68,6 +68,13 @@ body,
   height: 100%;
 }
 
+/* When installed as a PWA on iOS, content extends under the Dynamic Island.
+   env(safe-area-inset-*) pushes content into the visible zone. */
+#root {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 body {
   margin: 0;
   background-color: var(--color-base);
