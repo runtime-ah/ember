@@ -49,7 +49,7 @@ def _run_lightweight_migrations() -> None:
     from sqlalchemy import inspect, text
 
     additions = {
-        "projects": [("icon", "VARCHAR(64)")],
+        "projects": [("icon", "VARCHAR(64)"), ("pinned", "BOOLEAN DEFAULT 0")],
         "sections": [("icon", "VARCHAR(64)")],
         "tasks": [
             ("effort", "FLOAT"),

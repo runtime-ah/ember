@@ -59,6 +59,7 @@ class Project(Base):
     color: Mapped[str] = mapped_column(String(32), default="#c96442")
     icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
     order: Mapped[int] = mapped_column(Integer, default=0)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     sections: Mapped[list["Section"]] = relationship(
@@ -70,6 +71,14 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def task_count(self) -> int:
+        return sum(1 for t in self.tasks if t.parent_id is None)
+
+    @property
+    def completed_count(self) -> int:
+        return sum(1 for t in self.tasks if t.parent_id is None and t.completed)
 
 
 class Section(Base):

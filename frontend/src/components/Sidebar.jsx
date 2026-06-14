@@ -304,8 +304,14 @@ export default function Sidebar({
           </form>
         )}
 
-        {projects.map((p) => {
+        {projects.map((p, idx) => {
           const active = p.id === selectedId && !activeView && !calendarActive;
+          // Divider between pinned and regular projects
+          const showDivider = idx > 0 && !p.pinned && projects[idx - 1].pinned;
+          const progress = !p.pinned && p.task_count > 0
+            ? { done: p.completed_count, total: p.task_count }
+            : null;
+
           if (editingId === p.id) {
             return (
               <ProjectEditor
@@ -317,35 +323,44 @@ export default function Sidebar({
             );
           }
           return (
-            <div
-              key={p.id}
-              onClick={() => onSelect(p.id)}
-              title={collapsed ? p.name : undefined}
-              className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
-                active
-                  ? "bg-accent-subtle font-medium text-text-primary"
-                  : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
-              }`}
-            >
-              <Icon name={p.icon} size={16} className="shrink-0" style={{ color: p.color }} />
-              <span className={`flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
-                {p.name}
-              </span>
-              <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 ${collapsed ? "md:hidden" : ""}`}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }}
-                  className="text-text-muted hover:text-text-primary"
-                  title="Edit project"
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  onClick={(e) => removeProject(e, p.id)}
-                  className="text-text-muted hover:text-danger"
-                  title="Delete project"
-                >
-                  <Trash2 size={14} />
-                </button>
+            <div key={p.id}>
+              {showDivider && <div className="my-1.5 border-t border-border/30" />}
+              <div
+                onClick={() => onSelect(p.id)}
+                title={collapsed ? p.name : undefined}
+                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+                  active
+                    ? "bg-accent-subtle font-medium text-text-primary"
+                    : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+                }`}
+              >
+                <Icon name={p.icon} size={16} className="shrink-0" style={{ color: p.color }} />
+                <span className={`flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
+                  {p.name}
+                </span>
+                {progress && !collapsed && (
+                  <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[10px] text-text-muted opacity-0 group-hover:opacity-100">
+                    {progress.done}/{progress.total}
+                  </span>
+                )}
+                <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 ${collapsed ? "md:hidden" : ""}`}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }}
+                    className="text-text-muted hover:text-text-primary"
+                    title="Edit project"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  {!p.pinned && (
+                    <button
+                      onClick={(e) => removeProject(e, p.id)}
+                      className="text-text-muted hover:text-danger"
+                      title="Delete project"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -537,11 +552,12 @@ function ViewEditor({ view, labels, projects, order, onDone, onSaved }) {
 function ProjectEditor({ project, onDone, onSaved }) {
   const [name, setName] = useState(project.name);
   const [icon, setIcon] = useState(project.icon);
+  const [pinned, setPinned] = useState(project.pinned ?? false);
 
   async function commit() {
     const trimmed = name.trim();
     if (trimmed) {
-      await api.updateProject(project.id, { name: trimmed, icon });
+      await api.updateProject(project.id, { name: trimmed, icon, pinned });
       onSaved();
     }
     onDone();
@@ -555,18 +571,29 @@ function ProjectEditor({ project, onDone, onSaved }) {
   const ref = useClickOutside(commit);
 
   return (
-    <form ref={ref} onSubmit={save} className="flex items-center gap-1 rounded bg-elevated px-2 py-1.5">
-      <IconPicker value={icon} onChange={setIcon} color={project.color} />
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === "Escape" && onDone()}
-        className="w-full bg-transparent text-text-primary focus:outline-none"
-      />
-      <button type="submit" className="shrink-0 text-text-secondary hover:text-text-primary" title="Save">
-        <Check size={15} />
-      </button>
+    <form ref={ref} onSubmit={save} className="rounded-lg border border-border bg-surface p-2 shadow-pop">
+      <div className="mb-1.5 flex items-center gap-1">
+        <IconPicker value={icon} onChange={setIcon} color={project.color} />
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && onDone()}
+          className="flex-1 bg-transparent text-[13px] text-text-primary focus:outline-none"
+        />
+        <button type="submit" className="shrink-0 text-text-secondary hover:text-text-primary" title="Save">
+          <Check size={15} />
+        </button>
+      </div>
+      <label className="flex cursor-pointer items-center gap-1.5 px-0.5 text-[11px] text-text-muted">
+        <input
+          type="checkbox"
+          checked={pinned}
+          onChange={(e) => setPinned(e.target.checked)}
+          className="h-3 w-3"
+        />
+        Always open — no progress tracking
+      </label>
     </form>
   );
 }
