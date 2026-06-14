@@ -5,10 +5,11 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: "127.0.0.1",
     // Proxy API calls to the FastAPI backend during dev so the frontend can
     // use same-origin "/api/..." paths (no CORS juggling in the browser).
     proxy: {
-      "/api": "http://localhost:8000",
+      "/api": "http://127.0.0.1:8000",
     },
   },
 });
