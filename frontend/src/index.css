@@ -69,10 +69,14 @@ body,
 }
 
 /* When installed as a PWA on iOS, content extends under the Dynamic Island.
-   env(safe-area-inset-*) pushes content into the visible zone. */
+   env(safe-area-inset-*) pushes content into the visible zone.
+   Fixed elements (sidebar) need their own inset padding since they ignore #root padding. */
 #root {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top);
 }
 
 body {

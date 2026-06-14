@@ -145,7 +145,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`flex shrink-0 flex-col overflow-hidden whitespace-nowrap border-r border-border bg-surface
+      className={`safe-top flex shrink-0 flex-col overflow-hidden whitespace-nowrap border-r border-border bg-surface
         md:relative md:z-auto md:translate-x-0 md:transition-[width] md:duration-200 md:ease-in-out
         fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-in-out
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
