@@ -27,6 +27,8 @@ export default function Sidebar({
   onOpenCalendar,
   activeView,       // { type: 'today' | 'upcoming' | 'label', id?: number }
   onOpenView,       // (view) => void
+  open,             // mobile drawer open state
+  onClose,          // close the mobile drawer
 }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -116,9 +118,12 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`flex shrink-0 flex-col overflow-hidden whitespace-nowrap border-r border-border bg-surface transition-[width] duration-200 ease-in-out ${
-        collapsed ? "w-16" : "w-60"
-      }`}
+      className={`flex shrink-0 flex-col overflow-hidden whitespace-nowrap border-r border-border bg-surface
+        md:relative md:z-auto md:translate-x-0 md:transition-[width] md:duration-200 md:ease-in-out
+        fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-in-out
+        ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        ${collapsed ? "w-64 md:w-16" : "w-64 md:w-60"}
+      `}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-4">

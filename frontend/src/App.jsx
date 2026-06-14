@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
+import { Menu } from "lucide-react";
 import { api } from "./api";
-import { useIsMobile } from "./lib/useIsMobile";
 import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
-import MobileCapture from "./components/MobileCapture";
 
 // activeView is null (project selected) or { type: 'today' | 'upcoming' | 'calendar' | 'label', id?: number }
 
@@ -24,7 +23,7 @@ export default function App() {
   const [activeView, setActiveView] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   async function loadProjects(selectFirst = false) {
     try {
@@ -53,16 +52,28 @@ export default function App() {
   function handleSelectProject(id) {
     setActiveView(null);
     setSelectedId(id);
+    setSidebarOpen(false);
   }
 
   function handleOpenView(view) {
     setActiveView(view);
     setSelectedId(null);
+    setSidebarOpen(false);
   }
 
   function handleOpenCalendar() {
     setActiveView({ type: "calendar" });
     setSelectedId(null);
+    setSidebarOpen(false);
+  }
+
+  function mobileTitle() {
+    if (!activeView) return selected?.name ?? "Todo";
+    if (activeView.type === "today") return "Today";
+    if (activeView.type === "upcoming") return "Upcoming";
+    if (activeView.type === "calendar") return "Calendar";
+    if (activeView.type === "label") return `#${activeView.name ?? "label"}`;
+    return "Todo";
   }
 
   function renderMain() {
@@ -108,14 +119,9 @@ export default function App() {
     return null;
   }
 
-  if (isMobile) {
-    if (loading) return <p className="p-8 text-text-muted">Loading…</p>;
-    if (error) return <p className="p-6 text-danger">{error}</p>;
-    return <MobileCapture projects={projects} />;
-  }
-
   return (
     <div className="flex h-full">
+      {/* Sidebar — overlay drawer on mobile, fixed column on desktop */}
       <Sidebar
         projects={projects}
         selectedId={activeView ? null : selectedId}
@@ -125,13 +131,38 @@ export default function App() {
         onOpenCalendar={handleOpenCalendar}
         activeView={activeView?.type !== "calendar" ? activeView : null}
         onOpenView={handleOpenView}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      <main className="flex-1 overflow-y-auto">
-        {error && (
-          <div className="m-4 rounded border border-danger/40 p-3 text-danger">{error}</div>
-        )}
-        {loading ? <p className="p-8 text-text-muted">Loading…</p> : renderMain()}
-      </main>
+
+      {/* Backdrop — tapping it closes the drawer on mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile-only top bar */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-4 py-3 md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-text-secondary hover:text-text-primary"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <span className="text-sm font-medium text-text-primary">{mobileTitle()}</span>
+        </div>
+
+        <main className="flex-1 overflow-y-auto">
+          {error && (
+            <div className="m-4 rounded border border-danger/40 p-3 text-danger">{error}</div>
+          )}
+          {loading ? <p className="p-8 text-text-muted">Loading…</p> : renderMain()}
+        </main>
+      </div>
     </div>
   );
 }

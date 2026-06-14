@@ -47,7 +47,7 @@ export default function FilteredTaskView({ title, params, emptyMessage }) {
   });
 
   return (
-    <div className="mx-auto max-w-[720px] px-6 py-7">
+    <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-7">
       <header className="mb-5">
         <h1 className="text-2xl font-semibold text-text-primary">{title}</h1>
       </header>

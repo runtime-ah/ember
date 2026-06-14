@@ -48,7 +48,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
   return (
     <div>
-      <div className="group flex items-start gap-2 border-b border-border/70 px-2 py-1.5 transition-colors duration-150 hover:bg-elevated/40">
+      <div className="group flex items-start gap-2 border-b border-border/70 px-2 py-3 md:py-1.5 transition-colors duration-150 hover:bg-elevated/40">
         {isTopLevel &&
           (hasSubtasks ? (
             <button
@@ -144,7 +144,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           )}
         </div>
 
-        <div className="mt-0.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <div className="mt-0.5 flex items-center gap-1 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
           {isTopLevel && (
             <button
               onClick={() => { setExpandedPersist(true); setAddingSub(true); }}

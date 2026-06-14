@@ -115,8 +115,8 @@ export default function TaskView({ project }) {
   const completedCount = topLevel.filter((t) => t.completed).length;
 
   return (
-    <div className="mx-auto max-w-[720px] px-6 py-7">
-      <header className="mb-5 flex items-center gap-3">
+    <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-7">
+      <header className="mb-5 flex items-center gap-3 md:mb-5">
         <h1 className="flex flex-1 items-center gap-2.5 text-2xl font-semibold text-text-primary">
           <Icon name={project.icon} size={22} style={{ color: project.color }} />
           {project.name}
@@ -177,7 +177,7 @@ export default function TaskView({ project }) {
                 <span className="nums rounded-full bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
                   {count}
                 </span>
-                <div className="ml-auto flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <div className="ml-auto flex items-center gap-2 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
                   <button
                     onClick={() => {
                       if (isCollapsed) toggleCollapsed(s.id);
