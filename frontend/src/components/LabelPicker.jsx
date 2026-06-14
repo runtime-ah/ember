@@ -50,6 +50,7 @@ export default function LabelPicker({ selected = [], onChange }) {
       const label = await api.createLabel({ name, color: "#999999" });
       setAll((prev) => [...prev, label]);
       add(label);
+      window.dispatchEvent(new CustomEvent("labels:changed"));
     } catch {
       // Label already exists (race) — just pick the existing one.
       const existing = all.find((l) => l.name.toLowerCase() === name.toLowerCase());

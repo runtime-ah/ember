@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -11,7 +11,13 @@ import {
   PanelLeftClose,
   Tag,
   Trash2,
+  X,
 } from "lucide-react";
+
+const LABEL_COLORS = [
+  "#c96442", "#e05252", "#e07d52", "#e0c252",
+  "#52a852", "#52a8e0", "#7d52e0", "#999999",
+];
 import { api } from "../api";
 import { Icon } from "../lib/icons";
 import { useClickOutside } from "../lib/useClickOutside";
@@ -39,14 +45,35 @@ export default function Sidebar({
   );
   const [labels, setLabels] = useState([]);
   const [labelsOpen, setLabelsOpen] = useState(true);
+  const [colorPickerFor, setColorPickerFor] = useState(null);
+  const colorPickerRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
 
   useEffect(() => {
-    api.listLabels().then(setLabels).catch(() => {});
+    const refresh = () => api.listLabels().then(setLabels).catch(() => {});
+    refresh();
+    window.addEventListener("labels:changed", refresh);
+    return () => window.removeEventListener("labels:changed", refresh);
   }, []);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
+        setColorPickerFor(null);
+      }
+    }
+    if (colorPickerFor !== null) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [colorPickerFor]);
+
+  async function updateLabelColor(id, color) {
+    await api.updateLabel(id, { color });
+    setLabels((prev) => prev.map((l) => (l.id === id ? { ...l, color } : l)));
+    setColorPickerFor(null);
+  }
 
   function cancelAdd() {
     setAdding(false);
@@ -107,12 +134,12 @@ export default function Sidebar({
       {icon}
       <span
         className={`flex-1 truncate transition-opacity duration-150 ${
-          collapsed ? "opacity-0" : "opacity-100"
+          collapsed ? "md:opacity-0" : "opacity-100"
         }`}
       >
         {label}
       </span>
-      {!collapsed && extra}
+      {extra}
     </div>
   );
 
@@ -127,23 +154,32 @@ export default function Sidebar({
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-4">
+        {/* Mobile: close drawer */}
+        <button
+          onClick={onClose}
+          className="shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary md:hidden"
+          title="Close menu"
+        >
+          <X size={16} />
+        </button>
+        {/* Desktop: collapse/expand sidebar */}
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary"
+          className="hidden shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary md:block"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
         </button>
         <span
           className={`flex-1 text-[10px] font-medium uppercase tracking-wide text-text-muted transition-opacity duration-150 ${
-            collapsed ? "opacity-0" : "opacity-100"
+            collapsed ? "md:opacity-0" : "opacity-100"
           }`}
         >
           Menu
         </span>
         <div
           className={`flex items-center gap-2 transition-opacity duration-150 ${
-            collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+            collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"
           }`}
         >
           <ThemeToggle />
@@ -180,8 +216,7 @@ export default function Sidebar({
         <div className="my-2 border-t border-border/40" />
 
         {/* Labels */}
-        {!collapsed && (
-          <div className="mb-1">
+        <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
             <button
               onClick={() => setLabelsOpen((v) => !v)}
               className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
@@ -193,18 +228,45 @@ export default function Sidebar({
               labels.map((l) => (
                 <div
                   key={l.id}
-                  onClick={() => onOpenView({ type: "label", id: l.id, name: l.name })}
-                  className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors duration-150 ${
+                  className={`group relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors duration-150 ${
                     isViewActive("label", l.id)
                       ? "bg-accent-subtle font-medium text-text-primary"
                       : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
                   }`}
                 >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  {/* Color dot — click to change color */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === l.id ? null : l.id); }}
+                    className="h-2.5 w-2.5 shrink-0 rounded-full ring-offset-1 hover:ring-2 hover:ring-border"
                     style={{ backgroundColor: l.color }}
+                    title="Change color"
                   />
-                  <span className="flex-1 truncate">#{l.name}</span>
+                  {/* Color swatch popover */}
+                  {colorPickerFor === l.id && (
+                    <div
+                      ref={colorPickerRef}
+                      className="absolute left-6 top-0 z-50 flex gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-pop"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {LABEL_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => updateLabelColor(l.id, c)}
+                          className="h-4 w-4 shrink-0 rounded-full transition-transform hover:scale-125"
+                          style={{ backgroundColor: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <span
+                    className="flex-1 truncate"
+                    onClick={() => onOpenView({ type: "label", id: l.id, name: l.name })}
+                  >
+                    #{l.name}
+                  </span>
                   <button
                     onClick={(e) => deleteLabel(e, l.id)}
                     className="opacity-0 text-text-muted hover:text-danger group-hover:opacity-100"
@@ -219,12 +281,11 @@ export default function Sidebar({
                 No labels yet — type #tag in a task.
               </p>
             )}
-          </div>
-        )}
+        </div>
         {collapsed && (
           <div
             title="Labels"
-            className="flex cursor-pointer items-center justify-center rounded-md px-2.5 py-2 text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+            className="hidden cursor-pointer items-center justify-center rounded-md px-2.5 py-2 text-text-secondary hover:bg-elevated/60 hover:text-text-primary md:flex"
           >
             <Tag size={16} />
           </div>
@@ -235,7 +296,7 @@ export default function Sidebar({
         {/* Projects header */}
         <div
           className={`mb-1 flex items-center gap-2 px-2 transition-opacity duration-150 ${
-            collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+            collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"
           }`}
         >
           <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
@@ -250,7 +311,7 @@ export default function Sidebar({
           </button>
         </div>
 
-        {adding && !collapsed && (
+        {adding && (
           <form ref={addRef} onSubmit={addProject} className="mb-1 flex items-center gap-1 px-2">
             <IconPicker value={newIcon} onChange={setNewIcon} color="#c96442" />
             <input
@@ -266,7 +327,7 @@ export default function Sidebar({
 
         {projects.map((p) => {
           const active = p.id === selectedId && !activeView && !calendarActive;
-          if (editingId === p.id && !collapsed) {
+          if (editingId === p.id) {
             return (
               <ProjectEditor
                 key={p.id}
@@ -290,13 +351,12 @@ export default function Sidebar({
               <Icon name={p.icon} size={16} className="shrink-0" style={{ color: p.color }} />
               <span
                 className={`flex-1 truncate transition-opacity duration-150 ${
-                  collapsed ? "opacity-0" : "opacity-100"
+                  collapsed ? "md:opacity-0" : "opacity-100"
                 }`}
               >
                 {p.name}
               </span>
-              {!collapsed && (
-                <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <div className={`flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 ${collapsed ? "md:hidden" : ""}`}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }}
                     className="text-text-muted hover:text-text-primary"
@@ -312,7 +372,6 @@ export default function Sidebar({
                     <Trash2 size={14} />
                   </button>
                 </div>
-              )}
             </div>
           );
         })}
