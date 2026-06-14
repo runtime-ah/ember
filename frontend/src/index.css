@@ -63,7 +63,13 @@
 }
 
 html {
-  font-size: 18px; /* scale base rem from 16→18px so all spacing/text is proportionally larger */
+  font-size: 20px; /* 125% of browser default 16px — matches user's preferred zoom level */
+}
+
+/* Lucide icons have explicit px size props; override so they scale with font size */
+svg.lucide {
+  width: 1em;
+  height: 1em;
 }
 
 html,
