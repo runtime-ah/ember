@@ -6,19 +6,9 @@ import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
 
-// activeView is null (project selected) or { type: 'today' | 'upcoming' | 'calendar' | 'label', id?: number }
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-function futureDateIso(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 export default function App() {
   const [projects, setProjects] = useState([]);
+  const [views, setViews] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeView, setActiveView] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -42,8 +32,18 @@ export default function App() {
     }
   }
 
+  async function loadViews() {
+    try {
+      const data = await api.listViews();
+      setViews(data);
+    } catch {
+      // non-fatal
+    }
+  }
+
   useEffect(() => {
     loadProjects(true);
+    loadViews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -69,10 +69,9 @@ export default function App() {
 
   function mobileTitle() {
     if (!activeView) return selected?.name ?? "Todo";
-    if (activeView.type === "today") return "Today";
-    if (activeView.type === "upcoming") return "Upcoming";
     if (activeView.type === "calendar") return "Calendar";
-    if (activeView.type === "label") return `#${activeView.name ?? "label"}`;
+    if (activeView.type === "label") return `#${activeView.name ?? "tag"}`;
+    if (activeView.type === "view") return activeView.name ?? "View";
     return "Todo";
   }
 
@@ -82,36 +81,26 @@ export default function App() {
 
     if (activeView.type === "calendar") return <CalendarView />;
 
-    if (activeView.type === "today") {
-      const today = todayIso();
-      return (
-        <FilteredTaskView
-          title="Today"
-          params={{ due_before: today }}
-          emptyMessage="Nothing due today."
-        />
-      );
-    }
-
-    if (activeView.type === "upcoming") {
-      const tomorrow = futureDateIso(1);
-      const weekOut = futureDateIso(7);
-      return (
-        <FilteredTaskView
-          title="Upcoming"
-          params={{ due_after: tomorrow, due_before: weekOut }}
-          emptyMessage="Nothing coming up in the next 7 days."
-        />
-      );
-    }
-
     if (activeView.type === "label") {
       return (
         <FilteredTaskView
           key={activeView.id}
-          title={`#${activeView.name ?? "label"}`}
+          title={`#${activeView.name ?? "tag"}`}
           params={{ label_id: activeView.id }}
-          emptyMessage="No tasks with this label."
+          emptyMessage="No tasks with this tag."
+        />
+      );
+    }
+
+    if (activeView.type === "view") {
+      let params = {};
+      try { params = JSON.parse(activeView.filter_json || "{}"); } catch { /* bad json */ }
+      return (
+        <FilteredTaskView
+          key={activeView.id}
+          title={activeView.name}
+          params={{ ...params, completed: false }}
+          emptyMessage="Nothing matches this view."
         />
       );
     }
@@ -121,12 +110,13 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar — overlay drawer on mobile, fixed column on desktop */}
       <Sidebar
         projects={projects}
+        views={views}
         selectedId={activeView ? null : selectedId}
         onSelect={handleSelectProject}
         onProjectsChanged={loadProjects}
+        onViewsChanged={loadViews}
         calendarActive={activeView?.type === "calendar"}
         onOpenCalendar={handleOpenCalendar}
         activeView={activeView?.type !== "calendar" ? activeView : null}
@@ -135,7 +125,6 @@ export default function App() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Backdrop — tapping it closes the drawer on mobile */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
@@ -144,7 +133,6 @@ export default function App() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile-only top bar */}
         <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-4 py-3 md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
