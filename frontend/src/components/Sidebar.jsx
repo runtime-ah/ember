@@ -138,7 +138,7 @@ export default function Sidebar({
     <div
       onClick={onClick}
       title={collapsed ? label : undefined}
-      className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+      className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] transition-colors duration-150 ${
         active
           ? "bg-accent-subtle font-medium text-text-primary"
           : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -176,7 +176,7 @@ export default function Sidebar({
         >
           {collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
         </button>
-        <span className={`flex-1 text-[10px] font-medium uppercase tracking-wide text-text-muted transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
+        <span className={`flex-1 text-[12px] font-medium uppercase tracking-wide text-text-muted transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
           Menu
         </span>
         <div className={`flex items-center gap-2 transition-opacity duration-150 ${collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"}`}>
@@ -198,7 +198,7 @@ export default function Sidebar({
         {/* Custom Views */}
         <div className={`mb-1 ${collapsed ? "md:pointer-events-none md:opacity-0" : ""}`}>
           <div className="mb-1 flex items-center gap-2 px-2">
-            <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+            <span className="flex-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted">
               Views
             </span>
             <button
@@ -239,7 +239,7 @@ export default function Sidebar({
               <div
                 key={v.id}
                 onClick={() => onOpenView({ type: "view", id: v.id, name: v.name, filter_json: v.filter_json })}
-                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] transition-colors duration-150 ${
                   active
                     ? "bg-accent-subtle font-medium text-text-primary"
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -268,7 +268,7 @@ export default function Sidebar({
           })}
 
           {views.length === 0 && !addingView && (
-            <p className="px-2 py-1 text-[11px] text-text-muted">
+            <p className="px-2 py-1 text-[13px] text-text-muted">
               No views yet — click + to create one.
             </p>
           )}
@@ -278,7 +278,7 @@ export default function Sidebar({
 
         {/* Projects */}
         <div className={`mb-1 flex items-center gap-2 px-2 transition-opacity duration-150 ${collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"}`}>
-          <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <span className="flex-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted">
             Projects
           </span>
           <button
@@ -328,7 +328,7 @@ export default function Sidebar({
               <div
                 onClick={() => onSelect(p.id)}
                 title={collapsed ? p.name : undefined}
-                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] transition-colors duration-150 ${
                   active
                     ? "bg-accent-subtle font-medium text-text-primary"
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -339,7 +339,7 @@ export default function Sidebar({
                   {p.name}
                 </span>
                 {progress && !collapsed && (
-                  <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[10px] text-text-muted opacity-0 group-hover:opacity-100">
+                  <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[12px] text-text-muted opacity-0 group-hover:opacity-100">
                     {progress.done}/{progress.total}
                   </span>
                 )}
@@ -372,7 +372,7 @@ export default function Sidebar({
         <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
           <button
             onClick={() => setLabelsOpen((v) => !v)}
-            className="flex w-full items-center gap-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
+            className="flex w-full items-center gap-1 px-2 py-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
           >
             {labelsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
             Tags
@@ -381,7 +381,7 @@ export default function Sidebar({
             labels.map((l) => (
               <div
                 key={l.id}
-                className={`group relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors duration-150 ${
+                className={`group relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[15px] transition-colors duration-150 ${
                   isViewActive("label", l.id)
                     ? "bg-accent-subtle font-medium text-text-primary"
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -428,7 +428,7 @@ export default function Sidebar({
               </div>
             ))}
           {labels.length === 0 && labelsOpen && (
-            <p className="px-2 py-1 text-[11px] text-text-muted">
+            <p className="px-2 py-1 text-[13px] text-text-muted">
               No tags yet — type #tag in a task.
             </p>
           )}
@@ -505,7 +505,7 @@ function ViewEditor({ view, labels, projects, order, onDone, onSaved }) {
         <select
           value={labelId}
           onChange={(e) => setLabelId(e.target.value)}
-          className="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-text-muted focus:outline-none"
+          className="rounded bg-elevated px-1.5 py-0.5 text-[13px] text-text-muted focus:outline-none"
         >
           <option value="">Any tag</option>
           {labels.map((l) => (
@@ -516,7 +516,7 @@ function ViewEditor({ view, labels, projects, order, onDone, onSaved }) {
         <select
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
-          className="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-text-muted focus:outline-none"
+          className="rounded bg-elevated px-1.5 py-0.5 text-[13px] text-text-muted focus:outline-none"
         >
           <option value="">Any project</option>
           {projects.map((p) => (
@@ -527,7 +527,7 @@ function ViewEditor({ view, labels, projects, order, onDone, onSaved }) {
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value)}
-          className="rounded bg-elevated px-1.5 py-0.5 text-[11px] text-text-muted focus:outline-none"
+          className="rounded bg-elevated px-1.5 py-0.5 text-[13px] text-text-muted focus:outline-none"
         >
           <option value="">Any priority</option>
           <option value="1">P1 only</option>
@@ -535,7 +535,7 @@ function ViewEditor({ view, labels, projects, order, onDone, onSaved }) {
           <option value="3">P3 only</option>
         </select>
 
-        <label className="flex cursor-pointer items-center gap-1 rounded bg-elevated px-1.5 py-0.5 text-[11px] text-text-muted">
+        <label className="flex cursor-pointer items-center gap-1 rounded bg-elevated px-1.5 py-0.5 text-[13px] text-text-muted">
           <input
             type="checkbox"
             checked={noDueDate}
@@ -579,13 +579,13 @@ function ProjectEditor({ project, onDone, onSaved }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && onDone()}
-          className="flex-1 bg-transparent text-[13px] text-text-primary focus:outline-none"
+          className="flex-1 bg-transparent text-[15px] text-text-primary focus:outline-none"
         />
         <button type="submit" className="shrink-0 text-text-secondary hover:text-text-primary" title="Save">
           <Check size={15} />
         </button>
       </div>
-      <label className="flex cursor-pointer items-center gap-1.5 px-0.5 text-[11px] text-text-muted">
+      <label className="flex cursor-pointer items-center gap-1.5 px-0.5 text-[13px] text-text-muted">
         <input
           type="checkbox"
           checked={pinned}

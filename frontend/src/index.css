@@ -62,10 +62,6 @@
   box-shadow: var(--shadow-pop);
 }
 
-html {
-  font-size: 20px; /* 125% of browser default 16px — matches user's preferred zoom level */
-}
-
 /* Lucide icons have explicit px size props; override so they scale with font size */
 svg.lucide {
   width: 1em;
@@ -94,7 +90,7 @@ body {
   background-color: var(--color-base);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  font-size: 0.875rem; /* 15.75px at 18px base — scales with html font-size */
+  font-size: 14px;
   line-height: 1.55;
   letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
