@@ -48,7 +48,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
   return (
     <div>
-      <div className="group flex items-start gap-2 border-b border-border/70 px-2 py-1.5 transition-colors duration-150 hover:bg-elevated/40">
+      <div className="group flex items-start gap-2 border-b border-border/70 px-2 py-3 md:py-1.5 transition-colors duration-150 hover:bg-elevated/40">
         {isTopLevel &&
           (hasSubtasks ? (
             <button
@@ -64,7 +64,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
 
         <button
           onClick={toggle}
-          className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-all duration-150 hover:scale-110"
+          className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all duration-150 hover:scale-110"
           style={{
             borderColor: dotColor ?? "var(--color-text-muted)",
             backgroundColor: task.completed ? "var(--color-accent)" : "transparent",
@@ -72,7 +72,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           title={task.completed ? "Mark incomplete" : "Mark complete"}
         >
           {task.completed && (
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M2 6l3 3 5-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
@@ -144,7 +144,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           )}
         </div>
 
-        <div className="mt-0.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <div className="mt-0.5 flex items-center gap-1 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
           {isTopLevel && (
             <button
               onClick={() => { setExpandedPersist(true); setAddingSub(true); }}

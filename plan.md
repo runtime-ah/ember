@@ -221,16 +221,31 @@ extend: {
 
 ---
 
-## Backlog
+## Backlog — V2
 
-- **Ntfy notification links/actions** — make pushes interactive:
-  - Tap-through (`Click` header) → open the app; `send_push` already accepts a
-    `click` param, no caller uses it yet.
-  - Action buttons (`Actions` header): a **"Complete"** `http` action that POSTs
-    to `/api/tasks/{id}/complete` from the lock screen; a `view` action to open
-    the task.
-  - Needs: an absolute base URL (Pi's Tailscale MagicDNS name) and per-task
-    frontend routing for deep-links (opening the app home works without it).
+### 🔴 Mobile Uplift
+- **Long press → context menu** on projects/views (right-click is desktop-only; mobile can't edit/delete projects currently)
+- **Swipe to complete/delete tasks** — standard mobile pattern, entirely missing
+- **Hover-gated UI audit** — anything `opacity-0 group-hover:opacity-100` needs a touch fallback
+- **Touch target sizing** — some icon buttons are 13–14px with no padding
+
+### 🔴 Notifications (backend complete, UI missing)
+- **Reminder datetime picker** in task add/edit — APScheduler + ntfy push already implemented, no frontend yet
+- **Notification channel decision**: Web Push (built into PWA, best UX), ntfy (already wired), or Telegram (easiest to add)
+- **Ntfy tap-through** — `send_push` already accepts a `click` param; wire it to the Pi's Tailscale URL so tapping a notification opens the app
+
+### 🟡 Task Management
+- **Move task between sections and projects**
+- **Recurring task completion** — `recurrence_rule` field exists on Task model; completing should schedule the next occurrence (logic not yet implemented)
+- **Links / docs attached to tasks**
+
+### 🟡 Search
+- **Cmd+K / search palette** — cross-project task search; nothing built yet
+
+### 🟢 Later
+- **Goals** — explicitly deferred to V2
+- **Styling cleanup pass** — deferred throughout V1
+- **MCP server** — Phase 2 plan unchanged; expose tasks as Claude tools via Tailscale
 
 ## Future Integration Points
 

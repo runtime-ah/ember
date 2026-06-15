@@ -32,6 +32,14 @@ function nextWeekday(dayIndex) {
   return result;
 }
 
+function isDateToken(tok, nextTok) {
+  if (tok === "today" || tok === "tomorrow") return true;
+  if (WEEKDAYS.includes(tok)) return true;
+  if (MONTHS.includes(tok) || MONTH_ABBR.includes(tok)) return true;
+  if (tok === "next" && nextTok && WEEKDAYS.includes(nextTok)) return true;
+  return false;
+}
+
 // "9am" → "09:00", "2:30pm" → "14:30", "14:00" → "14:00"
 function parseTimeToken(tok) {
   // 9am / 2pm
@@ -112,13 +120,38 @@ export function parseTaskInput(text) {
       continue;
     }
 
-    // Time: 9am, 2:30pm, 14:00
+    // Time: 9am, 2:30pm, 14:00, noon, midnight
+    if ((tok === "noon" || tok === "midday") && result.dueTime === null) {
+      result.dueTime = "12:00";
+      consumed.add(i); i++; continue;
+    }
+    if (tok === "midnight" && result.dueTime === null) {
+      result.dueTime = "00:00";
+      consumed.add(i); i++; continue;
+    }
     const parsedTime = parseTimeToken(tok);
     if (parsedTime && result.dueTime === null) {
       result.dueTime = parsedTime;
       consumed.add(i);
       i++;
       continue;
+    }
+
+    // "at <time>" — consume "at" when followed by a recognisable time
+    if (tok === "at" && i + 1 < tokens.length && result.dueTime === null) {
+      const next = tokens[i + 1].toLowerCase();
+      if (parseTimeToken(next) || next === "noon" || next === "midday" || next === "midnight") {
+        consumed.add(i); i++; continue;
+      }
+    }
+
+    // "by / on / due <date>" — consume the preposition when followed by a date token
+    if ((tok === "by" || tok === "on" || tok === "due") && i + 1 < tokens.length && result.dueDate === null) {
+      const next = tokens[i + 1].toLowerCase();
+      const after = tokens[i + 2]?.toLowerCase();
+      if (isDateToken(next, after)) {
+        consumed.add(i); i++; continue;
+      }
     }
 
     // Recurrence keywords
@@ -188,6 +221,16 @@ export function parseTaskInput(text) {
     if (tok === "tomorrow" && result.dueDate === null) {
       result.dueDate = formatDate(todayPlus(1));
       consumed.add(i); i++; continue;
+    }
+
+    // "this monday" → next occurrence of that weekday
+    if (tok === "this" && i + 1 < tokens.length && result.dueDate === null) {
+      const wdIdx = WEEKDAYS.indexOf(tokens[i + 1].toLowerCase());
+      if (wdIdx >= 0) {
+        result.dueDate = formatDate(nextWeekday(wdIdx));
+        consumed.add(i); consumed.add(i + 1);
+        i += 2; continue;
+      }
     }
 
     // "next monday"

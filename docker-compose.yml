@@ -1,0 +1,14 @@
+services:
+  ember:
+    build: .
+    restart: unless-stopped
+    ports:
+      # Bind to loopback only — Caddy proxies from localhost, no direct external access.
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - ember_data:/data
+    env_file:
+      - backend/.env
+
+volumes:
+  ember_data:

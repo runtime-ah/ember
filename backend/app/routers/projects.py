@@ -17,7 +17,9 @@ def _get_or_404(db: Session, project_id: int) -> models.Project:
 
 @router.get("", response_model=list[schemas.ProjectOut])
 def list_projects(db: Session = Depends(get_db)):
-    stmt = select(models.Project).order_by(models.Project.order, models.Project.id)
+    stmt = select(models.Project).order_by(
+        models.Project.pinned.desc(), models.Project.order, models.Project.id
+    )
     return db.scalars(stmt).all()
 
 

@@ -47,11 +47,8 @@ export default function FilteredTaskView({ title, params, emptyMessage }) {
   });
 
   return (
-    <div className="mx-auto max-w-[720px] px-6 py-7">
-      <header className="mb-5">
-        <h1 className="text-2xl font-semibold text-text-primary">{title}</h1>
-      </header>
-
+    <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-7">
+      <h2 className="mb-5 text-[18px] font-semibold text-text-primary">{title}</h2>
       {topLevel.length === 0 ? (
         <p className="text-sm text-text-muted">{emptyMessage ?? "Nothing here."}</p>
       ) : (

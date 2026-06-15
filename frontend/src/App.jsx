@@ -1,39 +1,40 @@
 import { useEffect, useState } from "react";
+import { Menu } from "lucide-react";
 import { api } from "./api";
-import { useIsMobile } from "./lib/useIsMobile";
 import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
-import MobileCapture from "./components/MobileCapture";
+import EmberFlame from "./components/EmberFlame";
+import ThemeToggle from "./components/ThemeToggle";
 
-// activeView is null (project selected) or { type: 'today' | 'upcoming' | 'calendar' | 'label', id?: number }
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+const NAV_KEY = "ember-nav";
+function readNav() {
+  try { return JSON.parse(localStorage.getItem(NAV_KEY) || "{}"); } catch { return {}; }
 }
-function futureDateIso(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+function writeNav(selectedId, activeView) {
+  localStorage.setItem(NAV_KEY, JSON.stringify({ selectedId, activeView }));
 }
 
 export default function App() {
   const [projects, setProjects] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [activeView, setActiveView] = useState(null);
+  const [views, setViews] = useState([]);
+  const [selectedId, setSelectedId] = useState(() => readNav().selectedId ?? null);
+  const [activeView, setActiveView] = useState(() => readNav().activeView ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   async function loadProjects(selectFirst = false) {
     try {
       const data = await api.listProjects();
       setProjects(data);
-      if (selectFirst && data.length && selectedId === null) {
-        setSelectedId(data[0].id);
-      }
-      if (selectedId !== null && !data.some((p) => p.id === selectedId)) {
+      // If the saved project no longer exists, fall back to first.
+      const nav = readNav();
+      const savedStillValid = nav.selectedId != null && data.some((p) => p.id === nav.selectedId);
+      if (nav.selectedId != null && !savedStillValid) {
+        setSelectedId(data[0]?.id ?? null);
+      } else if (selectFirst && nav.selectedId == null && nav.activeView == null) {
         setSelectedId(data[0]?.id ?? null);
       }
     } catch (e) {
@@ -43,8 +44,18 @@ export default function App() {
     }
   }
 
+  async function loadViews() {
+    try {
+      const data = await api.listViews();
+      setViews(data);
+    } catch {
+      // non-fatal
+    }
+  }
+
   useEffect(() => {
     loadProjects(true);
+    loadViews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -53,16 +64,23 @@ export default function App() {
   function handleSelectProject(id) {
     setActiveView(null);
     setSelectedId(id);
+    setSidebarOpen(false);
+    writeNav(id, null);
   }
 
   function handleOpenView(view) {
     setActiveView(view);
     setSelectedId(null);
+    setSidebarOpen(false);
+    writeNav(null, view);
   }
 
   function handleOpenCalendar() {
-    setActiveView({ type: "calendar" });
+    const view = { type: "calendar" };
+    setActiveView(view);
     setSelectedId(null);
+    setSidebarOpen(false);
+    writeNav(null, view);
   }
 
   function renderMain() {
@@ -71,36 +89,26 @@ export default function App() {
 
     if (activeView.type === "calendar") return <CalendarView />;
 
-    if (activeView.type === "today") {
-      const today = todayIso();
-      return (
-        <FilteredTaskView
-          title="Today"
-          params={{ due_before: today }}
-          emptyMessage="Nothing due today."
-        />
-      );
-    }
-
-    if (activeView.type === "upcoming") {
-      const tomorrow = futureDateIso(1);
-      const weekOut = futureDateIso(7);
-      return (
-        <FilteredTaskView
-          title="Upcoming"
-          params={{ due_after: tomorrow, due_before: weekOut }}
-          emptyMessage="Nothing coming up in the next 7 days."
-        />
-      );
-    }
-
     if (activeView.type === "label") {
       return (
         <FilteredTaskView
           key={activeView.id}
-          title={`#${activeView.name ?? "label"}`}
+          title={`#${activeView.name ?? "tag"}`}
           params={{ label_id: activeView.id }}
-          emptyMessage="No tasks with this label."
+          emptyMessage="No tasks with this tag."
+        />
+      );
+    }
+
+    if (activeView.type === "view") {
+      let params = {};
+      try { params = JSON.parse(activeView.filter_json || "{}"); } catch { /* bad json */ }
+      return (
+        <FilteredTaskView
+          key={activeView.id}
+          title={activeView.name}
+          params={{ ...params, completed: false }}
+          emptyMessage="Nothing matches this view."
         />
       );
     }
@@ -108,30 +116,58 @@ export default function App() {
     return null;
   }
 
-  if (isMobile) {
-    if (loading) return <p className="p-8 text-text-muted">Loading…</p>;
-    if (error) return <p className="p-6 text-danger">{error}</p>;
-    return <MobileCapture projects={projects} />;
-  }
-
   return (
     <div className="flex h-full">
       <Sidebar
         projects={projects}
+        views={views}
         selectedId={activeView ? null : selectedId}
         onSelect={handleSelectProject}
         onProjectsChanged={loadProjects}
+        onViewsChanged={loadViews}
         calendarActive={activeView?.type === "calendar"}
         onOpenCalendar={handleOpenCalendar}
         activeView={activeView?.type !== "calendar" ? activeView : null}
         onOpenView={handleOpenView}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      <main className="flex-1 overflow-y-auto">
-        {error && (
-          <div className="m-4 rounded border border-danger/40 p-3 text-danger">{error}</div>
-        )}
-        {loading ? <p className="p-8 text-text-muted">Loading…</p> : renderMain()}
-      </main>
+
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-4 py-3">
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary md:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          {/* Ember brand — always */}
+          <div className="flex flex-1 items-center gap-2">
+            <EmberFlame size={17} className="shrink-0 text-accent" />
+            <span className="text-[20px] font-semibold text-text-primary">Ember</span>
+          </div>
+
+          {/* Theme toggle */}
+          <ThemeToggle />
+        </div>
+
+        <main className="flex-1 overflow-y-auto">
+          {error && (
+            <div className="m-4 rounded border border-danger/40 p-3 text-danger">{error}</div>
+          )}
+          {loading ? <p className="p-8 text-text-muted">Loading…</p> : renderMain()}
+        </main>
+      </div>
     </div>
   );
 }

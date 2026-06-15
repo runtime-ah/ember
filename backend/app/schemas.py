@@ -62,6 +62,7 @@ class ProjectBase(BaseModel):
     color: str = "#c96442"
     icon: str | None = None
     order: int = 0
+    pinned: bool = False
 
 
 class ProjectCreate(ProjectBase):
@@ -73,12 +74,15 @@ class ProjectUpdate(BaseModel):
     color: str | None = None
     icon: str | None = None
     order: int | None = None
+    pinned: bool | None = None
 
 
 class ProjectOut(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime
+    task_count: int = 0
+    completed_count: int = 0
 
 
 # --- Sections ---

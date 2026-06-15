@@ -13,14 +13,33 @@ import {
   timeLabel,
 } from "../lib/dates";
 
+// Parse "YYYY-MM-DD" as a local date to avoid UTC-offset issues.
+function parseYMD(s) {
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(s);
+}
+
+// Returns the exclusive end Date for spanning calculations.
+// All-day events: end field is already exclusive (iCal convention).
+// Timed events: add 1 day to the end date so the bar covers the end day.
+function eventEndExclusive(event) {
+  if (!event.end) return addDays(parseYMD(event.date), 1);
+  if (event.all_day) return parseYMD(event.end);
+  return addDays(parseYMD(event.end.slice(0, 10)), 1);
+}
+
 function EventChip({ event }) {
   return (
     <div
-      className="truncate rounded bg-accent-subtle px-1.5 py-0.5 text-[11px] text-text-primary"
+      className="truncate rounded bg-accent-subtle px-1.5 py-0.5 text-[11px] text-accent"
       title={event.summary}
     >
       {!event.all_day && (
-        <span className="nums mr-1 text-text-secondary">{timeLabel(event.start)}</span>
+        <span className="nums mr-1 text-text-muted">{timeLabel(event.start)}</span>
       )}
       {event.summary}
     </div>
@@ -39,6 +58,39 @@ function TaskChip({ task }) {
         style={{ backgroundColor: dot ?? "var(--color-text-muted)" }}
       />
       <span className="truncate">{task.content}</span>
+    </div>
+  );
+}
+
+function MultiDayBar({ event, weekStart, weekEnd, slot }) {
+  const eStart = parseYMD(event.date);
+  const eEnd = eventEndExclusive(event);
+
+  const colStart = Math.max(0, Math.round((eStart - weekStart) / 86400000));
+  const colEnd = Math.min(7, Math.round((eEnd - weekStart) / 86400000));
+
+  const startsHere = eStart >= weekStart;
+  const endsHere = eEnd <= addDays(weekEnd, 1);
+
+  return (
+    <div
+      className="absolute flex items-center overflow-hidden text-[11px] font-medium leading-none"
+      style={{
+        top: `${slot * 20 + 2}px`,
+        height: "18px",
+        left: `calc(${(colStart / 7) * 100}% + ${startsHere ? 3 : 0}px)`,
+        right: `calc(${((7 - colEnd) / 7) * 100}% + ${endsHere ? 3 : 0}px)`,
+        backgroundColor: "rgba(201, 100, 66, 0.18)",
+        color: "var(--color-accent)",
+        borderRadius: startsHere
+          ? endsHere ? "4px" : "4px 0 0 4px"
+          : endsHere ? "0 4px 4px 0" : "0",
+        paddingLeft: "6px",
+        paddingRight: "4px",
+      }}
+      title={event.summary}
+    >
+      {event.summary}
     </div>
   );
 }
@@ -68,10 +120,20 @@ export default function CalendarView() {
     load();
   }, [load]);
 
-  // Group events + tasks by date string.
+  // Events spanning multiple calendar days get spanning bars.
+  const multiDayEvents = events.filter((e) => {
+    if (!e.end) return false;
+    const s = parseYMD(e.date);
+    const en = eventEndExclusive(e);
+    return s && en && en - s > 86400000;
+  });
+  const multiDayKeys = new Set(multiDayEvents.map((e) => `${e.date}|${e.summary}`));
+
   const byDate = {};
   const bucket = (k) => (byDate[k] ??= { events: [], tasks: [] });
-  for (const e of events) bucket(e.date).events.push(e);
+  for (const e of events) {
+    if (!multiDayKeys.has(`${e.date}|${e.summary}`)) bucket(e.date).events.push(e);
+  }
   for (const t of tasks) bucket(t.due_date).tasks.push(t);
 
   const today = new Date();
@@ -89,10 +151,14 @@ export default function CalendarView() {
       ? monthTitle(anchor)
       : `${days[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
 
+  // Group into 6 weeks for month view
+  const weeks = [];
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+
   return (
-    <div className="flex h-full flex-col px-6 py-7">
-      <header className="mb-4 flex items-center gap-3">
-        <h1 className="flex-1 text-2xl font-semibold text-text-primary">{title}</h1>
+    <div className="flex h-full flex-col px-4 py-5 md:px-6 md:py-7">
+      <header className="mb-4 flex items-center gap-2">
+        <h1 className="flex-1 text-xl font-semibold text-text-primary md:text-2xl">{title}</h1>
         <button
           onClick={() => setAnchor(new Date())}
           className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
@@ -100,16 +166,10 @@ export default function CalendarView() {
           Today
         </button>
         <div className="flex items-center">
-          <button
-            onClick={() => shift(-1)}
-            className="rounded-md p-1.5 text-text-secondary transition-colors duration-150 hover:bg-elevated hover:text-text-primary"
-          >
+          <button onClick={() => shift(-1)} className="rounded-md p-1.5 text-text-secondary transition-colors duration-150 hover:bg-elevated hover:text-text-primary">
             <ChevronLeft size={18} />
           </button>
-          <button
-            onClick={() => shift(1)}
-            className="rounded-md p-1.5 text-text-secondary transition-colors duration-150 hover:bg-elevated hover:text-text-primary"
-          >
+          <button onClick={() => shift(1)} className="rounded-md p-1.5 text-text-secondary transition-colors duration-150 hover:bg-elevated hover:text-text-primary">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -132,8 +192,7 @@ export default function CalendarView() {
         <div className="mb-3 flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-text-secondary">
           <CalendarOff size={14} />
           Calendar not connected — add iCloud CalDAV credentials in{" "}
-          <code className="text-text-primary">backend/.env</code> to see events. Tasks
-          with due dates still show.
+          <code className="text-text-primary">backend/.env</code> to see events.
         </div>
       )}
 
@@ -147,38 +206,80 @@ export default function CalendarView() {
       </div>
 
       {mode === "month" ? (
-        <div className="grid flex-1 grid-cols-7 grid-rows-6">
-          {days.map((d) => {
-            const key = ymd(d);
-            const data = byDate[key] ?? { events: [], tasks: [] };
-            const items = [
-              ...data.events.map((e) => ({ kind: "event", item: e })),
-              ...data.tasks.map((t) => ({ kind: "task", item: t })),
-            ];
-            const isToday = sameDay(d, today);
-            const otherMonth = d.getMonth() !== anchor.getMonth();
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {weeks.map((wk, wi) => {
+            const wkStart = wk[0];
+            const wkEnd = wk[6];
+
+            // Multi-day events overlapping this week
+            const wkMulti = multiDayEvents.filter((e) => {
+              const s = parseYMD(e.date);
+              const en = eventEndExclusive(e);
+              return s <= wkEnd && en > wkStart;
+            });
+
             return (
-              <div
-                key={key}
-                className="min-h-0 space-y-0.5 overflow-hidden border-b border-r border-border/60 px-1 py-1"
-              >
-                <div
-                  className={`nums mb-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${
-                    isToday ? "bg-accent font-medium text-white" : otherMonth ? "text-text-muted" : "text-text-secondary"
-                  }`}
-                >
-                  {d.getDate()}
+              <div key={wi} className="flex min-h-0 flex-1 flex-col border-b border-border/60 last:border-b-0">
+                {/* Spanning multi-day bars */}
+                {wkMulti.length > 0 && (
+                  <div className="relative shrink-0" style={{ height: `${wkMulti.length * 20 + 4}px` }}>
+                    {/* Column dividers behind bars */}
+                    <div className="absolute inset-0 grid grid-cols-7">
+                      {wk.map((d) => <div key={ymd(d)} className="border-r border-border/60 last:border-r-0" />)}
+                    </div>
+                    {wkMulti.map((e, slot) => (
+                      <MultiDayBar
+                        key={`${e.date}|${e.summary}`}
+                        event={e}
+                        weekStart={wkStart}
+                        weekEnd={wkEnd}
+                        slot={slot}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Per-day cells */}
+                <div className="grid min-h-0 flex-1 grid-cols-7">
+                  {wk.map((d) => {
+                    const key = ymd(d);
+                    const data = byDate[key] ?? { events: [], tasks: [] };
+                    const items = [
+                      ...data.events.map((e) => ({ kind: "event", item: e })),
+                      ...data.tasks.map((t) => ({ kind: "task", item: t })),
+                    ];
+                    const isToday = sameDay(d, today);
+                    const otherMonth = d.getMonth() !== anchor.getMonth();
+                    return (
+                      <div
+                        key={key}
+                        className="min-h-0 space-y-0.5 overflow-hidden border-r border-border/60 px-1 py-1 last:border-r-0"
+                      >
+                        <div
+                          className={`nums mb-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${
+                            isToday
+                              ? "bg-accent font-medium text-white"
+                              : otherMonth
+                              ? "text-text-muted"
+                              : "text-text-secondary"
+                          }`}
+                        >
+                          {d.getDate()}
+                        </div>
+                        {items.slice(0, 2).map((it, i) =>
+                          it.kind === "event" ? (
+                            <EventChip key={`e${i}`} event={it.item} />
+                          ) : (
+                            <TaskChip key={`t${i}`} task={it.item} />
+                          )
+                        )}
+                        {items.length > 2 && (
+                          <div className="px-1 text-[10px] text-text-muted">+{items.length - 2}</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                {items.slice(0, 3).map((it, i) =>
-                  it.kind === "event" ? (
-                    <EventChip key={`e${i}`} event={it.item} />
-                  ) : (
-                    <TaskChip key={`t${i}`} task={it.item} />
-                  ),
-                )}
-                {items.length > 3 && (
-                  <div className="px-1 text-[10px] text-text-muted">+{items.length - 3} more</div>
-                )}
               </div>
             );
           })}
@@ -188,9 +289,15 @@ export default function CalendarView() {
           {days.map((d) => {
             const key = ymd(d);
             const data = byDate[key] ?? { events: [], tasks: [] };
+            // Also show multi-day events in week view cells
+            const wkMultiForDay = multiDayEvents.filter((e) => {
+              const s = parseYMD(e.date);
+              const en = eventEndExclusive(e);
+              return s <= d && en > d;
+            });
             const isToday = sameDay(d, today);
             return (
-              <div key={key} className="space-y-1 overflow-y-auto border-r border-border/60 px-1.5 py-2">
+              <div key={key} className="space-y-1 overflow-y-auto border-r border-border/60 px-1.5 py-2 last:border-r-0">
                 <div
                   className={`nums mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm ${
                     isToday ? "bg-accent font-medium text-white" : "text-text-secondary"
@@ -198,12 +305,18 @@ export default function CalendarView() {
                 >
                   {d.getDate()}
                 </div>
-                {data.events.map((e, i) => (
-                  <EventChip key={`e${i}`} event={e} />
+                {wkMultiForDay.map((e, i) => (
+                  <div
+                    key={`m${i}`}
+                    className="truncate rounded px-1.5 py-0.5 text-[11px] font-medium text-accent"
+                    style={{ backgroundColor: "rgba(201,100,66,0.18)" }}
+                    title={e.summary}
+                  >
+                    {e.summary}
+                  </div>
                 ))}
-                {data.tasks.map((t, i) => (
-                  <TaskChip key={`t${i}`} task={t} />
-                ))}
+                {data.events.map((e, i) => <EventChip key={`e${i}`} event={e} />)}
+                {data.tasks.map((t, i) => <TaskChip key={`t${i}`} task={t} />)}
               </div>
             );
           })}

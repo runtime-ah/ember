@@ -1,8 +1,10 @@
-// Thin fetch wrapper around the FastAPI backend. Paths are same-origin "/api/..."
-// (Vite proxies to localhost:8000 in dev; served from the same host on the Pi).
+// Thin fetch wrapper around the FastAPI backend.
+// In dev: VITE_API_BASE is unset → calls /api/... (Vite proxies to localhost:8000).
+// In prod: VITE_API_BASE=/ember → calls /ember/api/... (Caddy strips /ember prefix).
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function request(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}/api${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });

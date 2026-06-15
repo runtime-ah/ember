@@ -76,6 +76,7 @@ def list_tasks(
     due_after: date | None = None,
     label_id: int | None = None,
     completed: bool | None = None,
+    no_due_date: bool | None = None,
     db: Session = Depends(get_db),
 ):
     stmt = select(models.Task)
@@ -97,6 +98,8 @@ def list_tasks(
         stmt = stmt.where(models.Task.labels.any(models.Label.id == label_id))
     if completed is not None:
         stmt = stmt.where(models.Task.completed == completed)
+    if no_due_date is True:
+        stmt = stmt.where(models.Task.due_date == None)  # noqa: E711
     stmt = stmt.order_by(models.Task.order, models.Task.id)
     return db.scalars(stmt).all()
 
