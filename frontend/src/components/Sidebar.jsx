@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Pencil,
   Plus,
-  PanelLeft,
-  PanelLeftClose,
-  Tag,
   Trash2,
   X,
 } from "lucide-react";
@@ -22,7 +22,6 @@ import { api } from "../api";
 import { Icon } from "../lib/icons";
 import { useClickOutside } from "../lib/useClickOutside";
 import IconPicker from "./IconPicker";
-import ThemeToggle from "./ThemeToggle";
 
 export default function Sidebar({
   projects,
@@ -51,10 +50,18 @@ export default function Sidebar({
   const colorPickerRef = useRef(null);
   const [addingView, setAddingView] = useState(false);
   const [editingViewId, setEditingViewId] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null); // { kind, id, x, y }
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    function close() { setContextMenu(null); }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [contextMenu]);
 
   useEffect(() => {
     const refresh = () => api.listLabels().then(setLabels).catch(() => {});
@@ -103,8 +110,14 @@ export default function Sidebar({
     cancelAdd();
   }, adding);
 
-  async function removeProject(e, id) {
+  function openContextMenu(e, kind, id) {
+    e.preventDefault();
     e.stopPropagation();
+    setContextMenu({ kind, id, x: e.clientX, y: e.clientY });
+  }
+
+  async function removeProject(id) {
+    setContextMenu(null);
     if (!confirm("Delete this project and all its tasks?")) return;
     await api.deleteProject(id);
     onProjectsChanged();
@@ -120,8 +133,8 @@ export default function Sidebar({
     }
   }
 
-  async function deleteView(e, id) {
-    e.stopPropagation();
+  async function deleteView(id) {
+    setContextMenu(null);
     if (!confirm("Delete this view?")) return;
     await api.deleteView(id);
     onViewsChanged();
@@ -138,7 +151,7 @@ export default function Sidebar({
     <div
       onClick={onClick}
       title={collapsed ? label : undefined}
-      className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] transition-colors duration-150 ${
+      className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
         active
           ? "bg-accent-subtle font-medium text-text-primary"
           : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -157,31 +170,33 @@ export default function Sidebar({
         md:relative md:z-auto md:translate-x-0 md:transition-[width] md:duration-200 md:ease-in-out
         fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-in-out
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        ${collapsed ? "w-64 md:w-16" : "w-64 md:w-60"}
+        ${collapsed ? "w-80 md:w-16" : "w-80 md:w-64"}
       `}
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-4">
+      {/* Collapse toggle — aligned with nav items */}
+      <div className="px-2 pt-3 pb-1">
+        {/* Mobile: close overlay */}
         <button
           onClick={onClose}
-          className="shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary md:hidden"
+          className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] text-text-secondary transition-colors duration-150 hover:bg-elevated/60 hover:text-text-primary md:hidden"
           title="Close menu"
         >
-          <X size={16} />
+          <X size={16} className="shrink-0" />
+          <span>Close</span>
         </button>
+        {/* Desktop: collapse/expand */}
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="hidden shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary md:block"
+          className="hidden w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] text-text-secondary transition-colors duration-150 hover:bg-elevated/60 hover:text-text-primary md:flex"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+          {collapsed
+            ? <ChevronsRight size={16} className="shrink-0" />
+            : <ChevronsLeft size={16} className="shrink-0" />}
+          <span className={`transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
+            Collapse
+          </span>
         </button>
-        <span className={`flex-1 text-[12px] font-medium uppercase tracking-wide text-text-muted transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
-          Menu
-        </span>
-        <div className={`flex items-center gap-2 transition-opacity duration-150 ${collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"}`}>
-          <ThemeToggle />
-        </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
@@ -195,10 +210,152 @@ export default function Sidebar({
 
         <div className="my-2 border-t border-border/40" />
 
-        {/* Custom Views */}
-        <div className={`mb-1 ${collapsed ? "md:pointer-events-none md:opacity-0" : ""}`}>
+        {/* Projects header */}
+        <div className={`mb-1 flex items-center gap-2 px-2 transition-opacity duration-150 ${collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"}`}>
+          <span className="flex-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted">
+            Projects
+          </span>
+          <button
+            onClick={() => setAdding((v) => !v)}
+            className="text-text-muted hover:text-text-secondary"
+            title="New project"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+
+        {adding && (
+          <form ref={addRef} onSubmit={addProject} className="mb-1 flex items-center gap-1 px-2">
+            <IconPicker value={newIcon} onChange={setNewIcon} color="#c96442" />
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && cancelAdd()}
+              placeholder="Project name"
+              className="w-full rounded bg-elevated px-2 py-1.5 text-text-primary placeholder:text-text-muted focus:outline-none"
+            />
+          </form>
+        )}
+
+        {projects.map((p, idx) => {
+          const active = p.id === selectedId && !activeView && !calendarActive;
+          const showDivider = idx > 0 && !p.pinned && projects[idx - 1].pinned;
+          const progress = !p.pinned && p.task_count > 0
+            ? { done: p.completed_count, total: p.task_count }
+            : null;
+
+          if (editingId === p.id) {
+            return (
+              <ProjectEditor
+                key={p.id}
+                project={p}
+                onDone={() => setEditingId(null)}
+                onSaved={onProjectsChanged}
+              />
+            );
+          }
+          return (
+            <div key={p.id}>
+              {showDivider && <div className="my-1.5 border-t border-border/30" />}
+              <div
+                onClick={() => onSelect(p.id)}
+                onContextMenu={(e) => openContextMenu(e, "project", p.id)}
+                title={p.name}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
+                  active
+                    ? "bg-accent-subtle font-medium text-text-primary"
+                    : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+                }`}
+              >
+                <Icon name={p.icon} size={16} className="shrink-0" style={{ color: p.color }} />
+                <span className={`min-w-0 flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
+                  {p.name}
+                </span>
+                {progress && !collapsed && (
+                  <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[12px] text-text-muted">
+                    {progress.done}/{progress.total}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="my-2 border-t border-border/40" />
+
+        {/* Tags — hidden when collapsed */}
+        <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
+          <button
+            onClick={() => setLabelsOpen((v) => !v)}
+            className="flex w-full items-center gap-1 px-2 py-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
+          >
+            {labelsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            Tags
+          </button>
+          {labelsOpen &&
+            labels.map((l) => (
+              <div
+                key={l.id}
+                className={`group relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[16px] transition-colors duration-150 ${
+                  isViewActive("label", l.id)
+                    ? "bg-accent-subtle font-medium text-text-primary"
+                    : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === l.id ? null : l.id); }}
+                  className="h-2.5 w-2.5 shrink-0 rounded-full ring-offset-1 hover:ring-2 hover:ring-border"
+                  style={{ backgroundColor: l.color }}
+                  title="Change color"
+                />
+                {colorPickerFor === l.id && (
+                  <div
+                    ref={colorPickerRef}
+                    className="absolute left-6 top-0 z-50 flex gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-pop"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {LABEL_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => updateLabelColor(l.id, c)}
+                        className="h-4 w-4 shrink-0 rounded-full transition-transform hover:scale-125"
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    ))}
+                  </div>
+                )}
+                <span
+                  className="min-w-0 flex-1 truncate"
+                  onClick={() => onOpenView({ type: "label", id: l.id, name: l.name })}
+                >
+                  #{l.name}
+                </span>
+                <button
+                  onClick={(e) => deleteLabel(e, l.id)}
+                  className="opacity-0 text-text-muted hover:text-danger group-hover:opacity-100"
+                  title="Delete tag"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))}
+          {labels.length === 0 && labelsOpen && (
+            <p className="px-2 py-1 text-[13px] text-text-muted">
+              No tags yet — type #tag in a task.
+            </p>
+          )}
+        </div>
+
+        {!collapsed && <div className="my-2 border-t border-border/40" />}
+
+        {/* Views — hidden when collapsed */}
+        <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
           <div className="mb-1 flex items-center gap-2 px-2">
-            <span className="flex-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted">
+            <span className="flex-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted">
               Views
             </span>
             <button
@@ -239,30 +396,15 @@ export default function Sidebar({
               <div
                 key={v.id}
                 onClick={() => onOpenView({ type: "view", id: v.id, name: v.name, filter_json: v.filter_json })}
-                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] transition-colors duration-150 ${
+                onContextMenu={(e) => openContextMenu(e, "view", v.id)}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
                   active
                     ? "bg-accent-subtle font-medium text-text-primary"
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
                 }`}
               >
                 <Icon name={v.icon} size={15} className="shrink-0 text-text-muted" />
-                <span className="flex-1 truncate">{v.name}</span>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingViewId(v.id); }}
-                    className="text-text-muted hover:text-text-primary"
-                    title="Edit view"
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  <button
-                    onClick={(e) => deleteView(e, v.id)}
-                    className="text-text-muted hover:text-danger"
-                    title="Delete view"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
+                <span className="min-w-0 flex-1 truncate">{v.name}</span>
               </div>
             );
           })}
@@ -273,175 +415,55 @@ export default function Sidebar({
             </p>
           )}
         </div>
-
-        <div className="my-2 border-t border-border/40" />
-
-        {/* Projects */}
-        <div className={`mb-1 flex items-center gap-2 px-2 transition-opacity duration-150 ${collapsed ? "md:pointer-events-none md:opacity-0" : "opacity-100"}`}>
-          <span className="flex-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted">
-            Projects
-          </span>
-          <button
-            onClick={() => setAdding((v) => !v)}
-            className="text-text-muted hover:text-text-secondary"
-            title="New project"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-
-        {adding && (
-          <form ref={addRef} onSubmit={addProject} className="mb-1 flex items-center gap-1 px-2">
-            <IconPicker value={newIcon} onChange={setNewIcon} color="#c96442" />
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && cancelAdd()}
-              placeholder="Project name"
-              className="w-full rounded bg-elevated px-2 py-1.5 text-text-primary placeholder:text-text-muted focus:outline-none"
-            />
-          </form>
-        )}
-
-        {projects.map((p, idx) => {
-          const active = p.id === selectedId && !activeView && !calendarActive;
-          // Divider between pinned and regular projects
-          const showDivider = idx > 0 && !p.pinned && projects[idx - 1].pinned;
-          const progress = !p.pinned && p.task_count > 0
-            ? { done: p.completed_count, total: p.task_count }
-            : null;
-
-          if (editingId === p.id) {
-            return (
-              <ProjectEditor
-                key={p.id}
-                project={p}
-                onDone={() => setEditingId(null)}
-                onSaved={onProjectsChanged}
-              />
-            );
-          }
-          return (
-            <div key={p.id}>
-              {showDivider && <div className="my-1.5 border-t border-border/30" />}
-              <div
-                onClick={() => onSelect(p.id)}
-                title={collapsed ? p.name : undefined}
-                className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[15px] transition-colors duration-150 ${
-                  active
-                    ? "bg-accent-subtle font-medium text-text-primary"
-                    : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
-                }`}
-              >
-                <Icon name={p.icon} size={16} className="shrink-0" style={{ color: p.color }} />
-                <span className={`flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
-                  {p.name}
-                </span>
-                {progress && !collapsed && (
-                  <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[12px] text-text-muted opacity-0 group-hover:opacity-100">
-                    {progress.done}/{progress.total}
-                  </span>
-                )}
-                <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 ${collapsed ? "md:hidden" : ""}`}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }}
-                    className="text-text-muted hover:text-text-primary"
-                    title="Edit project"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  {!p.pinned && (
-                    <button
-                      onClick={(e) => removeProject(e, p.id)}
-                      className="text-text-muted hover:text-danger"
-                      title="Delete project"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        <div className="my-2 border-t border-border/40" />
-
-        {/* Tags */}
-        <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
-          <button
-            onClick={() => setLabelsOpen((v) => !v)}
-            className="flex w-full items-center gap-1 px-2 py-1 text-[12px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
-          >
-            {labelsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-            Tags
-          </button>
-          {labelsOpen &&
-            labels.map((l) => (
-              <div
-                key={l.id}
-                className={`group relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[15px] transition-colors duration-150 ${
-                  isViewActive("label", l.id)
-                    ? "bg-accent-subtle font-medium text-text-primary"
-                    : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setColorPickerFor(colorPickerFor === l.id ? null : l.id); }}
-                  className="h-2.5 w-2.5 shrink-0 rounded-full ring-offset-1 hover:ring-2 hover:ring-border"
-                  style={{ backgroundColor: l.color }}
-                  title="Change color"
-                />
-                {colorPickerFor === l.id && (
-                  <div
-                    ref={colorPickerRef}
-                    className="absolute left-6 top-0 z-50 flex gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-pop"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {LABEL_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => updateLabelColor(l.id, c)}
-                        className="h-4 w-4 shrink-0 rounded-full transition-transform hover:scale-125"
-                        style={{ backgroundColor: c }}
-                        title={c}
-                      />
-                    ))}
-                  </div>
-                )}
-                <span
-                  className="flex-1 truncate"
-                  onClick={() => onOpenView({ type: "label", id: l.id, name: l.name })}
-                >
-                  #{l.name}
-                </span>
-                <button
-                  onClick={(e) => deleteLabel(e, l.id)}
-                  className="opacity-0 text-text-muted hover:text-danger group-hover:opacity-100"
-                  title="Delete tag"
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            ))}
-          {labels.length === 0 && labelsOpen && (
-            <p className="px-2 py-1 text-[13px] text-text-muted">
-              No tags yet — type #tag in a task.
-            </p>
-          )}
-        </div>
-        {collapsed && (
-          <div
-            title="Tags"
-            className="hidden cursor-pointer items-center justify-center rounded-md px-2.5 py-2 text-text-secondary hover:bg-elevated/60 hover:text-text-primary md:flex"
-          >
-            <Tag size={16} />
-          </div>
-        )}
       </nav>
+
+      {/* Right-click context menu — rendered via portal to escape aside's CSS transform */}
+      {contextMenu && createPortal(
+        <div
+          className="fixed z-[200] min-w-[140px] overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-pop"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {contextMenu.kind === "project" && (() => {
+            const p = projects.find((x) => x.id === contextMenu.id);
+            return (
+              <>
+                <button
+                  onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+                >
+                  <Pencil size={13} /> Edit
+                </button>
+                {!p?.pinned && (
+                  <button
+                    onClick={() => removeProject(contextMenu.id)}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                )}
+              </>
+            );
+          })()}
+          {contextMenu.kind === "view" && (
+            <>
+              <button
+                onClick={() => { setEditingViewId(contextMenu.id); setContextMenu(null); }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+              >
+                <Pencil size={13} /> Edit
+              </button>
+              <button
+                onClick={() => deleteView(contextMenu.id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
+              >
+                <Trash2 size={13} /> Delete
+              </button>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
     </aside>
   );
 }

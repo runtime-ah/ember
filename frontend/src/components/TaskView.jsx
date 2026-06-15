@@ -116,27 +116,32 @@ export default function TaskView({ project }) {
 
   return (
     <div className="mx-auto max-w-[720px] px-4 py-5 md:px-6 md:py-7">
-      <header className="mb-5 flex items-center gap-3 md:mb-5">
-        <h1 className="flex flex-1 items-center gap-2.5 text-2xl font-semibold text-text-primary">
-          <Icon name={project.icon} size={22} style={{ color: project.color }} />
-          {project.name}
-        </h1>
-        {completedCount > 0 && (
+      <div className="mb-5 flex items-center gap-3">
+        {/* Project title */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Icon name={project.icon} size={18} style={{ color: project.color ?? "var(--color-text-muted)" }} />
+          <h2 className="truncate text-[18px] font-semibold text-text-primary">{project.name}</h2>
+        </div>
+
+        {/* Actions */}
+        <div className="flex shrink-0 items-center gap-3">
+          {completedCount > 0 && (
+            <button
+              onClick={() => setShowCompleted((v) => !v)}
+              className="nums text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
+            >
+              {showCompleted ? "Hide" : "Show"} completed ({completedCount})
+            </button>
+          )}
           <button
-            onClick={() => setShowCompleted((v) => !v)}
-            className="nums text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
+            onClick={() => setAdding(null)}
+            className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-white shadow-soft transition-all duration-150 hover:-translate-y-px hover:bg-accent-hover active:translate-y-0"
+            title="Add task"
           >
-            {showCompleted ? "Hide" : "Show"} completed ({completedCount})
+            <Plus size={16} /> Add task
           </button>
-        )}
-        <button
-          onClick={() => setAdding(null)}
-          className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-white shadow-soft transition-all duration-150 hover:-translate-y-px hover:bg-accent-hover active:translate-y-0"
-          title="Add task"
-        >
-          <Plus size={16} /> Add task
-        </button>
-      </header>
+        </div>
+      </div>
 
       {/* Sectionless tasks */}
       {renderTaskList(tasksFor(null))}
@@ -170,11 +175,11 @@ export default function TaskView({ project }) {
                 >
                   {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                 </button>
-                <Icon name={s.icon} size={14} className="text-text-secondary" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+                <Icon name={s.icon} size={15} className="text-text-secondary" />
+                <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-text-secondary">
                   {s.name}
                 </h2>
-                <span className="nums rounded-full bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                <span className="nums rounded-full bg-elevated px-1.5 py-0.5 text-[11px] font-medium text-text-muted">
                   {count}
                 </span>
                 <div className="ml-auto flex items-center gap-2 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">

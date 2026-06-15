@@ -5,12 +5,22 @@ import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
+import EmberFlame from "./components/EmberFlame";
+import ThemeToggle from "./components/ThemeToggle";
+
+const NAV_KEY = "ember-nav";
+function readNav() {
+  try { return JSON.parse(localStorage.getItem(NAV_KEY) || "{}"); } catch { return {}; }
+}
+function writeNav(selectedId, activeView) {
+  localStorage.setItem(NAV_KEY, JSON.stringify({ selectedId, activeView }));
+}
 
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [views, setViews] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [activeView, setActiveView] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => readNav().selectedId ?? null);
+  const [activeView, setActiveView] = useState(() => readNav().activeView ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -19,10 +29,12 @@ export default function App() {
     try {
       const data = await api.listProjects();
       setProjects(data);
-      if (selectFirst && data.length && selectedId === null) {
-        setSelectedId(data[0].id);
-      }
-      if (selectedId !== null && !data.some((p) => p.id === selectedId)) {
+      // If the saved project no longer exists, fall back to first.
+      const nav = readNav();
+      const savedStillValid = nav.selectedId != null && data.some((p) => p.id === nav.selectedId);
+      if (nav.selectedId != null && !savedStillValid) {
+        setSelectedId(data[0]?.id ?? null);
+      } else if (selectFirst && nav.selectedId == null && nav.activeView == null) {
         setSelectedId(data[0]?.id ?? null);
       }
     } catch (e) {
@@ -53,26 +65,22 @@ export default function App() {
     setActiveView(null);
     setSelectedId(id);
     setSidebarOpen(false);
+    writeNav(id, null);
   }
 
   function handleOpenView(view) {
     setActiveView(view);
     setSelectedId(null);
     setSidebarOpen(false);
+    writeNav(null, view);
   }
 
   function handleOpenCalendar() {
-    setActiveView({ type: "calendar" });
+    const view = { type: "calendar" };
+    setActiveView(view);
     setSelectedId(null);
     setSidebarOpen(false);
-  }
-
-  function mobileTitle() {
-    if (!activeView) return selected?.name ?? "Todo";
-    if (activeView.type === "calendar") return "Calendar";
-    if (activeView.type === "label") return `#${activeView.name ?? "tag"}`;
-    if (activeView.type === "view") return activeView.name ?? "View";
-    return "Todo";
+    writeNav(null, view);
   }
 
   function renderMain() {
@@ -133,15 +141,24 @@ export default function App() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-4 py-3 md:hidden">
+        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-4 py-3">
+          {/* Hamburger — mobile only */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-text-secondary hover:text-text-primary"
+            className="shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary md:hidden"
             aria-label="Open menu"
           >
             <Menu size={20} />
           </button>
-          <span className="text-sm font-medium text-text-primary">{mobileTitle()}</span>
+
+          {/* Ember brand — always */}
+          <div className="flex flex-1 items-center gap-2">
+            <EmberFlame size={17} className="shrink-0 text-accent" />
+            <span className="text-[20px] font-semibold text-text-primary">Ember</span>
+          </div>
+
+          {/* Theme toggle */}
+          <ThemeToggle />
         </div>
 
         <main className="flex-1 overflow-y-auto">
