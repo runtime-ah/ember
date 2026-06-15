@@ -1,3 +1,51 @@
+# Session Log — 2026-06-15
+
+**V1 shipped and deployed to Pi.** `https://pi.tail56f1a8.ts.net/ember`
+
+---
+
+## What we built today
+
+### Header & Sidebar Redesign
+- Persistent "Ember" brand (flame + text) always in the top header bar; project/view title moved into the content area alongside the Add task button
+- Both rendered at `text-[18–20px]`, larger than section labels (`text-[13px]`)
+- Sidebar: Ember branding removed (header now owns it)
+- **Right-click context menu** for project and view edit/delete — replaces hover buttons, rendered via React portal to escape CSS transform clipping; completely frees up the row layout so project names no longer truncate
+- Sidebar collapse toggle aligned with nav items (same `px-2.5` padding), icon updated to `ChevronsLeft/Right` for clarity
+- Tags and Views sections hidden when sidebar is collapsed (were unclickable anyway)
+- Views section moved below Tags
+- Mobile popout widened to `w-80` (320px)
+- FilteredTaskView (Today, Upcoming, label views) now shows its title in the content area
+
+### Calendar
+- Multi-day event spanning bars across week rows (both all-day and timed events)
+- `eventEndExclusive()` helper normalises iCal exclusive-end convention vs timed events
+- iCloud CalDAV connected via `backend/.env` credentials (`TODO_CALDAV_USERNAME`, `TODO_CALDAV_PASSWORD`)
+
+### PWA
+- Flame icon generated via browser canvas → base64 → PNG (180, 192, 512px)
+- Minimal service worker (`public/sw.js`) — satisfies Chrome/Safari PWA install requirements
+- `manifest.json` fixed to use relative paths (`./`) so `start_url` and icon `src` resolve correctly whether the app is at `/` (dev) or `/ember/` (Pi)
+- Service worker registered via `import.meta.env.BASE_URL` so path is correct in both environments
+
+### Pi Deployment
+- Multi-stage `Dockerfile`: Node 22 builds the frontend, Python 3.12 + uv runs the backend; SQLite in a named Docker volume
+- `docker-compose.yml`: port bound to `127.0.0.1:8001` (loopback only, Caddy proxies)
+- `deploy.sh`: rsync code → `docker compose up -d --build` → auto-inserts Caddy `handle_path /ember*` block on first run (idempotent thereafter)
+- `sync-db.sh`: one command to copy local dev DB into the Pi container
+- `Vite base: "/ember/"` for production builds; `VITE_API_BASE=/ember` baked in at build time so API calls route through Caddy correctly instead of hitting Garage Dashboard on port 8000
+- Nav state (selected project / active view) persisted to `localStorage` so app reopens to last position on launch
+
+---
+
+## Current state
+
+- V1 live at `https://pi.tail56f1a8.ts.net/ember`, PWA-installable, data migrated from dev
+- All core task management, sections, labels, calendar, daily brief, and reminders are implemented
+- Mobile use reveals gaps: right-click context menu is inaccessible, no swipe gestures, hover-gated UI doesn't work on touch
+
+---
+
 # Session Log — 2026-06-14
 
 Building on Phase 1 + 2 foundation from yesterday. Added labels/tagging, NL input parsing,
