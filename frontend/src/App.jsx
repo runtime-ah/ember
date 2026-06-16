@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
+import ListDetail from "./components/ListDetail";
 import EmberFlame from "./components/EmberFlame";
 import ThemeToggle from "./components/ThemeToggle";
 import SearchPalette from "./components/SearchPalette";
@@ -19,9 +20,11 @@ function writeNav(selectedId, activeView) {
 
 export default function App() {
   const [projects, setProjects] = useState([]);
+  const [lists, setLists] = useState([]);
   const [views, setViews] = useState([]);
   const [selectedId, setSelectedId] = useState(() => readNav().selectedId ?? null);
   const [activeView, setActiveView] = useState(() => readNav().activeView ?? null);
+  const [activeList, setActiveList] = useState(null); // full list object with items
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -55,9 +58,42 @@ export default function App() {
     }
   }
 
+  async function loadLists() {
+    try {
+      const data = await api.listLists();
+      setLists(data);
+      // Keep activeList in sync if one is open
+      setActiveList((prev) => {
+        if (!prev) return prev;
+        return data.find((l) => l.id === prev.id) ?? prev;
+      });
+    } catch {
+      // non-fatal
+    }
+  }
+
+  async function openList(nav) {
+    try {
+      const lst = await api.getList(nav.id);
+      setActiveList(lst);
+      setActiveView({ type: "list", id: nav.id, name: nav.name });
+      setSelectedId(null);
+      setSidebarOpen(false);
+      writeNav(null, { type: "list", id: nav.id, name: nav.name });
+    } catch {
+      // non-fatal
+    }
+  }
+
   useEffect(() => {
     loadProjects(true);
     loadViews();
+    loadLists();
+    // Restore list view if that's what was saved
+    const savedNav = readNav();
+    if (savedNav.activeView?.type === "list") {
+      openList(savedNav.activeView);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -76,6 +112,7 @@ export default function App() {
 
   function handleSelectProject(id) {
     setActiveView(null);
+    setActiveList(null);
     setSelectedId(id);
     setSidebarOpen(false);
     writeNav(id, null);
@@ -83,6 +120,7 @@ export default function App() {
 
   function handleOpenView(view) {
     setActiveView(view);
+    setActiveList(null);
     setSelectedId(null);
     setSidebarOpen(false);
     writeNav(null, view);
@@ -92,6 +130,7 @@ export default function App() {
     const view = { type: "calendar" };
     setActiveView(view);
     setSelectedId(null);
+    setActiveList(null);
     setSidebarOpen(false);
     writeNav(null, view);
   }
@@ -101,6 +140,24 @@ export default function App() {
     if (!activeView) return <p className="p-8 text-text-muted">No projects yet — create one in the sidebar.</p>;
 
     if (activeView.type === "calendar") return <CalendarView />;
+
+    if (activeView.type === "list" && activeList) {
+      return (
+        <ListDetail
+          key={activeList.id}
+          list={activeList}
+          onChanged={() => loadLists()}
+          onDelete={async () => {
+            await api.deleteList(activeList.id);
+            setActiveView(null);
+            setActiveList(null);
+            setSelectedId(projects[0]?.id ?? null);
+            writeNav(projects[0]?.id ?? null, null);
+            loadLists();
+          }}
+        />
+      );
+    }
 
     if (activeView.type === "label") {
       return (
@@ -133,15 +190,18 @@ export default function App() {
     <div className="flex h-full">
       <Sidebar
         projects={projects}
+        lists={lists}
         views={views}
         selectedId={activeView ? null : selectedId}
         onSelect={handleSelectProject}
         onProjectsChanged={loadProjects}
+        onListsChanged={loadLists}
         onViewsChanged={loadViews}
         calendarActive={activeView?.type === "calendar"}
         onOpenCalendar={handleOpenCalendar}
         activeView={activeView?.type !== "calendar" ? activeView : null}
         onOpenView={handleOpenView}
+        onOpenList={openList}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

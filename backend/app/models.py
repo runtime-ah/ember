@@ -143,3 +143,46 @@ class Task(Base):
         back_populates="subtasks",
         remote_side="Task.id",
     )
+
+
+class List(Base):
+    __tablename__ = "lists"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    color: Mapped[str] = mapped_column(String(32), default="#c96442")
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    items: Mapped[list["ListItem"]] = relationship(
+        back_populates="list",
+        cascade="all, delete-orphan",
+        order_by="ListItem.order",
+    )
+
+    @property
+    def item_count(self) -> int:
+        return len(self.items)
+
+    @property
+    def checked_count(self) -> int:
+        return sum(1 for i in self.items if i.checked)
+
+
+class ListItem(Base):
+    __tablename__ = "list_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    list_id: Mapped[int] = mapped_column(
+        ForeignKey("lists.id", ondelete="CASCADE"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(String(500), nullable=False)
+    checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    list: Mapped["List"] = relationship(back_populates="items")

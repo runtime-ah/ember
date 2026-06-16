@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  List,
   Pencil,
   Plus,
   Trash2,
@@ -27,15 +28,18 @@ import IconPicker from "./IconPicker";
 
 export default function Sidebar({
   projects,
+  lists,
   views,
   selectedId,
   onSelect,
   onProjectsChanged,
+  onListsChanged,
   onViewsChanged,
   calendarActive,
   onOpenCalendar,
   activeView,
   onOpenView,
+  onOpenList,
   open,
   onClose,
 }) {
@@ -50,6 +54,8 @@ export default function Sidebar({
   const [labelsOpen, setLabelsOpen] = useState(true);
   const [colorPickerFor, setColorPickerFor] = useState(null);
   const colorPickerRef = useRef(null);
+  const [addingList, setAddingList] = useState(false);
+  const [newListName, setNewListName] = useState("");
   const [addingView, setAddingView] = useState(false);
   const [editingViewId, setEditingViewId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null); // { kind, id, x, y }
@@ -151,6 +157,24 @@ export default function Sidebar({
     if (activeView?.type === "view" && activeView.id === id) {
       onSelect(projects[0]?.id ?? null);
     }
+  }
+
+  async function addList(e) {
+    e.preventDefault();
+    const trimmed = newListName.trim();
+    if (!trimmed) { setAddingList(false); return; }
+    const lst = await api.createList({ name: trimmed, order: (lists ?? []).length });
+    setAddingList(false);
+    setNewListName("");
+    onListsChanged();
+    onOpenList({ type: "list", id: lst.id, name: lst.name });
+  }
+
+  async function deleteListEntry(id) {
+    setContextMenu(null);
+    if (!confirm("Delete this list and all its items?")) return;
+    await api.deleteList(id);
+    onListsChanged();
   }
 
   async function loadArchivedProjects() {
@@ -356,6 +380,77 @@ export default function Sidebar({
 
         <div className="my-2 border-t border-border/40" />
 
+        {/* Lists — hidden when collapsed */}
+        <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
+          <div className="mb-1 flex items-center gap-2 px-2">
+            <span className="flex-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted">
+              Lists
+            </span>
+            <button
+              onClick={() => setAddingList((v) => !v)}
+              className="text-text-muted hover:text-text-secondary"
+              title="New list"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+
+          {addingList && (
+            <form onSubmit={addList} className="mb-1 flex items-center gap-1 px-2">
+              <List size={14} className="shrink-0 text-text-muted" />
+              <input
+                autoFocus
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && (setAddingList(false), setNewListName(""))}
+                onBlur={(e) => { if (!newListName.trim()) { setAddingList(false); setNewListName(""); } }}
+                placeholder="List name"
+                className="w-full rounded bg-elevated px-2 py-1.5 text-text-primary placeholder:text-text-muted focus:outline-none"
+              />
+            </form>
+          )}
+
+          {(lists ?? []).map((lst) => {
+            const active = activeView?.type === "list" && activeView.id === lst.id;
+            const done = lst.checked_count ?? 0;
+            const total = lst.item_count ?? 0;
+            return (
+              <div
+                key={lst.id}
+                onClick={() => onOpenList({ type: "list", id: lst.id, name: lst.name })}
+                onContextMenu={(e) => openContextMenu(e, "list", lst.id)}
+                onTouchStart={(e) => startLongPress(e, "list", lst.id)}
+                onTouchEnd={cancelLongPress}
+                onTouchMove={cancelLongPress}
+                title={lst.name}
+                className={`select-none flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
+                  active
+                    ? "bg-accent-subtle font-medium text-text-primary"
+                    : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+                }`}
+              >
+                <List size={15} className="shrink-0 text-text-muted" />
+                <span className={`min-w-0 flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
+                  {lst.name}
+                </span>
+                {total > 0 && !collapsed && (
+                  <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[12px] text-text-muted">
+                    {done}/{total}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+
+          {(lists ?? []).length === 0 && !addingList && (
+            <p className="px-2 py-1 text-[13px] text-text-muted">
+              No lists yet — click + to create one.
+            </p>
+          )}
+        </div>
+
+        <div className="my-2 border-t border-border/40" />
+
         {/* Tags — hidden when collapsed */}
         <div className={`mb-1 ${collapsed ? "md:hidden" : ""}`}>
           <button
@@ -551,6 +646,14 @@ export default function Sidebar({
                 <Trash2 size={13} /> Delete
               </button>
             </>
+          )}
+          {contextMenu.kind === "list" && (
+            <button
+              onClick={() => deleteListEntry(contextMenu.id)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
+            >
+              <Trash2 size={13} /> Delete
+            </button>
           )}
         </div>,
         document.body

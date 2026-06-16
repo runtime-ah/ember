@@ -168,3 +168,58 @@ class ReorderItem(BaseModel):
 
 class ReorderRequest(BaseModel):
     items: list[ReorderItem]
+
+
+# --- Lists ---
+
+
+class ListItemBase(BaseModel):
+    content: str = Field(min_length=1, max_length=500)
+    checked: bool = False
+    order: int = 0
+
+
+class ListItemCreate(ListItemBase):
+    pass
+
+
+class ListItemUpdate(BaseModel):
+    content: str | None = Field(default=None, min_length=1, max_length=500)
+    checked: bool | None = None
+    order: int | None = None
+
+
+class ListItemOut(ListItemBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    list_id: int
+    created_at: datetime
+
+
+class ListBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    icon: str | None = None
+    color: str = "#c96442"
+    task_id: int | None = None
+    order: int = 0
+
+
+class ListCreate(ListBase):
+    pass
+
+
+class ListUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    icon: str | None = None
+    color: str | None = None
+    task_id: int | None = None
+    order: int | None = None
+
+
+class ListOut(ListBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+    items: list[ListItemOut] = []
+    item_count: int = 0
+    checked_count: int = 0

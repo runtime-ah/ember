@@ -68,4 +68,18 @@ export const api = {
   reorderTasks: (items) =>
     request("/tasks/reorder", { method: "POST", body: JSON.stringify({ items }) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: "DELETE" }),
+
+  // Lists
+  listLists: () => request("/lists"),
+  createList: (data) => request("/lists", { method: "POST", body: JSON.stringify(data) }),
+  getList: (id) => request(`/lists/${id}`),
+  updateList: (id, data) => request(`/lists/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteList: (id) => request(`/lists/${id}`, { method: "DELETE" }),
+  resetList: (id) => request(`/lists/${id}/reset`, { method: "POST" }),
+  addListItem: (listId, data) =>
+    request(`/lists/${listId}/items`, { method: "POST", body: JSON.stringify(data) }),
+  updateListItem: (listId, itemId, data) =>
+    request(`/lists/${listId}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteListItem: (listId, itemId) =>
+    request(`/lists/${listId}/items/${itemId}`, { method: "DELETE" }),
 };

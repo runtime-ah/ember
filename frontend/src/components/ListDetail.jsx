@@ -1,0 +1,291 @@
+import { useEffect, useRef, useState } from "react";
+import { CheckSquare, Link2, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
+import { api } from "../api";
+
+export default function ListDetail({ list, onChanged, onDelete }) {
+  const [items, setItems] = useState(list.items ?? []);
+  const [draft, setDraft] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [name, setName] = useState(list.name);
+  const [linkedTask, setLinkedTask] = useState(null);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [taskQuery, setTaskQuery] = useState("");
+  const [allTasks, setAllTasks] = useState(null);
+  const addInputRef = useRef(null);
+  const taskPickerRef = useRef(null);
+
+  useEffect(() => {
+    setItems(list.items ?? []);
+    setName(list.name);
+    setLinkedTask(null);
+    if (list.task_id) {
+      api.listTasks().then((tasks) => {
+        const t = tasks.find((t) => t.id === list.task_id);
+        setLinkedTask(t ?? null);
+      });
+    }
+  }, [list.id, list.task_id]);
+
+  useEffect(() => {
+    if (!showTaskPicker) return;
+    if (!allTasks) {
+      api.listTasks().then(setAllTasks);
+    }
+    function onOutside(e) {
+      if (taskPickerRef.current && !taskPickerRef.current.contains(e.target)) {
+        setShowTaskPicker(false);
+        setTaskQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [showTaskPicker, allTasks]);
+
+  async function addItem(e) {
+    e.preventDefault();
+    const content = draft.trim();
+    if (!content) return;
+    const item = await api.addListItem(list.id, { content, order: items.length });
+    setItems((prev) => [...prev, item]);
+    setDraft("");
+    addInputRef.current?.focus();
+    onChanged();
+  }
+
+  async function toggleItem(item) {
+    const updated = await api.updateListItem(list.id, item.id, { checked: !item.checked });
+    setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
+    onChanged();
+  }
+
+  async function deleteItem(item) {
+    await api.deleteListItem(list.id, item.id);
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    onChanged();
+  }
+
+  async function resetList() {
+    const updated = await api.resetList(list.id);
+    setItems(updated.items ?? []);
+    onChanged();
+  }
+
+  async function saveName() {
+    const trimmed = name.trim();
+    setEditingName(false);
+    if (!trimmed || trimmed === list.name) return;
+    await api.updateList(list.id, { name: trimmed });
+    onChanged();
+  }
+
+  async function linkTask(task) {
+    await api.updateList(list.id, { task_id: task.id });
+    setLinkedTask(task);
+    setShowTaskPicker(false);
+    setTaskQuery("");
+    onChanged();
+  }
+
+  async function unlinkTask() {
+    await api.updateList(list.id, { task_id: null });
+    setLinkedTask(null);
+    onChanged();
+  }
+
+  const checkedCount = items.filter((i) => i.checked).length;
+  const pct = items.length ? (checkedCount / items.length) * 100 : 0;
+
+  const filteredTasks = allTasks
+    ? allTasks
+        .filter(
+          (t) =>
+            t.parent_id == null &&
+            t.content.toLowerCase().includes(taskQuery.toLowerCase().trim())
+        )
+        .slice(0, 12)
+    : [];
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4">
+        {/* Header */}
+        <div className="mb-5 flex items-start gap-2">
+          {editingName ? (
+            <form
+              onSubmit={(e) => { e.preventDefault(); saveName(); }}
+              className="flex-1"
+            >
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && setEditingName(false)}
+                onBlur={saveName}
+                className="w-full rounded bg-elevated px-2 py-1 text-[22px] font-semibold text-text-primary focus:outline-none"
+              />
+            </form>
+          ) : (
+            <h1
+              className="flex-1 cursor-pointer text-[22px] font-semibold text-text-primary hover:text-accent"
+              onClick={() => setEditingName(true)}
+            >
+              {list.name}
+            </h1>
+          )}
+
+          <button
+            onClick={resetList}
+            title="Uncheck all"
+            disabled={checkedCount === 0}
+            className="mt-1 rounded-md p-1.5 text-text-muted transition-colors hover:bg-elevated hover:text-text-primary disabled:opacity-30"
+          >
+            <RefreshCw size={15} />
+          </button>
+          <button
+            onClick={() => { if (confirm("Delete this list?")) onDelete(); }}
+            title="Delete list"
+            className="mt-1 rounded-md p-1.5 text-text-muted transition-colors hover:bg-elevated hover:text-danger"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+
+        {/* Linked task */}
+        <div className="mb-4 relative" ref={taskPickerRef}>
+          {linkedTask ? (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-elevated/60 px-3 py-2">
+              <Link2 size={13} className="shrink-0 text-text-muted" />
+              <span className="flex-1 text-[13px] text-text-secondary truncate">
+                Linked: <span className="text-text-primary">{linkedTask.content}</span>
+              </span>
+              <button
+                onClick={unlinkTask}
+                className="shrink-0 text-text-muted hover:text-text-primary"
+                title="Unlink task"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowTaskPicker((v) => !v)}
+              className="flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-secondary transition-colors"
+            >
+              <Link2 size={13} />
+              Link to task
+            </button>
+          )}
+
+          {showTaskPicker && (
+            <div className="absolute top-full left-0 z-20 mt-1 w-full max-w-sm rounded-xl border border-border bg-surface shadow-pop">
+              <div className="border-b border-border px-3 py-2">
+                <input
+                  autoFocus
+                  value={taskQuery}
+                  onChange={(e) => setTaskQuery(e.target.value)}
+                  placeholder="Search tasks…"
+                  className="w-full bg-transparent text-[14px] text-text-primary placeholder:text-text-muted focus:outline-none"
+                />
+              </div>
+              <div className="max-h-52 overflow-y-auto py-1">
+                {!allTasks && (
+                  <p className="px-3 py-4 text-center text-[13px] text-text-muted">Loading…</p>
+                )}
+                {allTasks && filteredTasks.length === 0 && (
+                  <p className="px-3 py-4 text-center text-[13px] text-text-muted">No tasks found</p>
+                )}
+                {filteredTasks.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => linkTask(t)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-text-muted/40" />
+                    <span className="truncate">{t.content}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        {items.length > 0 && (
+          <div className="mb-5">
+            <div className="mb-1.5 flex items-center justify-between text-[12px] text-text-muted">
+              <span>{checkedCount} of {items.length} done</span>
+              {checkedCount === items.length && items.length > 0 && (
+                <span className="font-medium text-accent">All done!</span>
+              )}
+            </div>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-elevated">
+              <div
+                className="h-full rounded-full bg-accent transition-all duration-300"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Items */}
+        <div className="divide-y divide-border/30">
+          {items.map((item) => (
+            <div key={item.id} className="group flex items-center gap-3 py-2.5">
+              <button
+                onClick={() => toggleItem(item)}
+                className="shrink-0 transition-colors"
+              >
+                {item.checked ? (
+                  <CheckSquare size={20} className="text-accent" />
+                ) : (
+                  <Square size={20} className="text-text-muted hover:text-text-secondary" />
+                )}
+              </button>
+              <span
+                className={`flex-1 text-[15px] leading-snug ${
+                  item.checked ? "text-text-muted line-through" : "text-text-primary"
+                }`}
+              >
+                {item.content}
+              </span>
+              <button
+                onClick={() => deleteItem(item)}
+                className="shrink-0 text-text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <p className="py-6 text-center text-[14px] text-text-muted">
+              No items yet — add one below.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky add-item bar */}
+      <div className="shrink-0 border-t border-border bg-surface px-4 py-3">
+        <form onSubmit={addItem} className="flex items-center gap-2.5">
+          <Plus size={16} className="shrink-0 text-text-muted" />
+          <input
+            ref={addInputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Add item…"
+            className="flex-1 bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
+          />
+          {draft.trim() && (
+            <button
+              type="submit"
+              className="shrink-0 rounded bg-accent px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-accent/90"
+            >
+              Add
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
