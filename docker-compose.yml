@@ -10,5 +10,17 @@ services:
     env_file:
       - backend/.env
 
+  mcp:
+    build: ./mcp_server
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      - TODO_MCP_BACKEND_URL=http://ember:8000
+      - TODO_MCP_HOST=0.0.0.0
+      - TODO_MCP_PORT=8765
+    depends_on:
+      - ember
+
 volumes:
   ember_data:
