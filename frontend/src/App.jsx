@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { api } from "./api";
 import Sidebar from "./components/Sidebar";
 import TaskView from "./components/TaskView";
@@ -7,6 +7,7 @@ import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
 import EmberFlame from "./components/EmberFlame";
 import ThemeToggle from "./components/ThemeToggle";
+import SearchPalette from "./components/SearchPalette";
 
 const NAV_KEY = "ember-nav";
 function readNav() {
@@ -24,6 +25,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   async function loadProjects(selectFirst = false) {
     try {
@@ -57,6 +59,17 @@ export default function App() {
     loadProjects(true);
     loadViews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, []);
 
   const selected = projects.find((p) => p.id === selectedId) ?? null;
@@ -140,6 +153,20 @@ export default function App() {
         />
       )}
 
+      {searchOpen && (
+        <SearchPalette
+          projects={projects}
+          onClose={() => setSearchOpen(false)}
+          onNavigate={(id) => {
+            setSelectedId(id);
+            setActiveView(null);
+            setSidebarOpen(false);
+            setSearchOpen(false);
+            writeNav(id, null);
+          }}
+        />
+      )}
+
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-4 py-3">
           {/* Hamburger — mobile only */}
@@ -156,6 +183,16 @@ export default function App() {
             <EmberFlame size={17} className="shrink-0 text-accent" />
             <span className="text-[20px] font-semibold text-text-primary">Ember</span>
           </div>
+
+          {/* Search */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="shrink-0 text-text-secondary transition-colors duration-150 hover:text-text-primary"
+            aria-label="Search tasks"
+            title="Search (⌘K)"
+          >
+            <Search size={17} />
+          </button>
 
           {/* Theme toggle */}
           <ThemeToggle />
