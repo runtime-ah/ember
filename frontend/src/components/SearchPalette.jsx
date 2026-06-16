@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import { api } from "../api";
 import { priorityColor, formatDue } from "../lib/priority";
 import { Icon } from "../lib/icons";
+import TaskModal from "./TaskModal";
 
 let cachedTasks = null;
 
@@ -11,6 +12,7 @@ export default function SearchPalette({ projects, onClose, onNavigate }) {
   const [tasks, setTasks] = useState(cachedTasks ?? []);
   const [loading, setLoading] = useState(cachedTasks === null);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [activeTask, setActiveTask] = useState(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
@@ -42,21 +44,23 @@ export default function SearchPalette({ projects, onClose, onNavigate }) {
       ).slice(0, 20)
     : [];
 
-  // Build item list: insert project headers when project changes
-  const items = [];
-  let prevPid = null;
-  let taskCount = 0;
+  // Group by project, then flatten into a header-interleaved list
+  const grouped = new Map();
   for (const task of matched) {
-    if (task.project_id !== prevPid) {
-      items.push({ type: "header", project: projectMap[task.project_id] });
-      prevPid = task.project_id;
+    if (!grouped.has(task.project_id)) grouped.set(task.project_id, []);
+    grouped.get(task.project_id).push(task);
+  }
+  const items = [];
+  let taskCount = 0;
+  for (const [pid, groupTasks] of grouped) {
+    items.push({ type: "header", project: projectMap[pid] });
+    for (const task of groupTasks) {
+      items.push({ type: "task", task, idx: taskCount++ });
     }
-    items.push({ type: "task", task, idx: taskCount++ });
   }
 
-  function selectAndNavigate(projectId) {
-    cachedTasks = null; // invalidate on navigation so next open is fresh
-    onNavigate(projectId);
+  function openTask(task) {
+    setActiveTask(task);
   }
 
   function handleKeyDown(e) {
@@ -70,8 +74,20 @@ export default function SearchPalette({ projects, onClose, onNavigate }) {
       setSelectedIdx((i) => Math.max(i - 1, 0));
     }
     if (e.key === "Enter" && matched[selectedIdx]) {
-      selectAndNavigate(matched[selectedIdx].project_id);
+      openTask(matched[selectedIdx]);
     }
+  }
+
+  if (activeTask) {
+    return (
+      <TaskModal
+        task={activeTask}
+        subtasks={tasks.filter((t) => t.parent_id === activeTask.id)}
+        projectId={activeTask.project_id}
+        onDone={() => { cachedTasks = null; onClose(); }}
+        onChanged={() => { cachedTasks = null; }}
+      />
+    );
   }
 
   return (
@@ -147,7 +163,7 @@ export default function SearchPalette({ projects, onClose, onNavigate }) {
             return (
               <button
                 key={task.id}
-                onClick={() => selectAndNavigate(task.project_id)}
+                onClick={() => openTask(task)}
                 onMouseEnter={() => setSelectedIdx(idx)}
                 className={`flex w-full items-center gap-2.5 px-4 py-2 text-left transition-colors duration-75 ${
                   isSelected ? "bg-accent/10" : "hover:bg-elevated/60"
