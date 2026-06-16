@@ -18,10 +18,15 @@ async function request(path, options = {}) {
 
 export const api = {
   // Projects
-  listProjects: () => request("/projects"),
+  listProjects: (includeArchived = false) =>
+    request(`/projects${includeArchived ? "?include_archived=true" : ""}`),
   createProject: (data) => request("/projects", { method: "POST", body: JSON.stringify(data) }),
   updateProject: (id, data) =>
     request(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  archiveProject: (id) =>
+    request(`/projects/${id}`, { method: "PATCH", body: JSON.stringify({ archived: true }) }),
+  unarchiveProject: (id) =>
+    request(`/projects/${id}`, { method: "PATCH", body: JSON.stringify({ archived: false }) }),
   deleteProject: (id) => request(`/projects/${id}`, { method: "DELETE" }),
 
   // Sections

@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Trash2, Bell, Plus, ChevronRight, ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "../api";
-import { PRIORITIES, priorityColor, formatDue } from "../lib/priority";
-import { useClickOutside } from "../lib/useClickOutside";
+import { priorityColor, formatDue } from "../lib/priority";
 import { isTaskExpanded, setTaskExpanded } from "../lib/expandedTasks";
 import AddTask from "./AddTask";
-import LabelPicker from "./LabelPicker";
-import TimePicker from "./TimePicker";
+import TaskModal from "./TaskModal";
 
 const RECURRENCE_LABELS = {
   daily: "Daily",
@@ -16,8 +14,14 @@ const RECURRENCE_LABELS = {
   monthly: "Monthly",
 };
 
+function fmtEffort(h) {
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  if (h === Math.floor(h)) return `${h}h`;
+  return `${h}h`;
+}
+
 export default function TaskItem({ task, subtasks = [], projectId, onChanged }) {
-  const [editing, setEditing] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [expanded, setExpanded] = useState(() => isTaskExpanded(task.id));
   const hasSubtasks = subtasks.length > 0;
@@ -37,10 +41,6 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
   async function remove() {
     await api.deleteTask(task.id);
     onChanged();
-  }
-
-  if (editing) {
-    return <TaskEditor task={task} onDone={() => setEditing(false)} onChanged={onChanged} />;
   }
 
   const due = formatDue(task.due_date, task.due_time);
@@ -78,7 +78,7 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           )}
         </button>
 
-        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setEditing(true)}>
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setModalOpen(true)}>
           <div className="flex items-center gap-2">
             <span className={task.completed ? "text-text-muted line-through" : "text-text-primary"}>
               {task.content}
@@ -148,13 +148,13 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           {isTopLevel && (
             <button
               onClick={() => { setExpandedPersist(true); setAddingSub(true); }}
-              className="text-text-muted hover:text-text-primary"
+              className="p-1 text-text-muted hover:text-text-primary"
               title="Add subtask"
             >
               <Plus size={15} />
             </button>
           )}
-          <button onClick={remove} className="text-text-muted hover:text-danger" title="Delete task">
+          <button onClick={remove} className="p-1 text-text-muted hover:text-danger" title="Delete task">
             <Trash2 size={14} />
           </button>
         </div>
@@ -178,177 +178,18 @@ export default function TaskItem({ task, subtasks = [], projectId, onChanged }) 
           )}
         </div>
       )}
+
+      {/* Detail modal */}
+      {modalOpen && (
+        <TaskModal
+          task={task}
+          subtasks={subtasks}
+          projectId={projectId}
+          onDone={() => setModalOpen(false)}
+          onChanged={onChanged}
+        />
+      )}
     </div>
   );
 }
 
-function TaskEditor({ task, onDone, onChanged }) {
-  const [content, setContent] = useState(task.content);
-  const [description, setDescription] = useState(task.description ?? "");
-  const [priority, setPriority] = useState(task.priority);
-  const [dueDate, setDueDate] = useState(task.due_date ?? "");
-  const [dueTime, setDueTime] = useState(
-    task.due_time ? task.due_time.slice(0, 5) : null,
-  );
-  const [labels, setLabels] = useState(task.labels ?? []);
-  const [effort, setEffort] = useState(task.effort != null ? String(task.effort) : "");
-  const [recurrenceRule, setRecurrenceRule] = useState(task.recurrence_rule ?? "");
-  // Reminder: split stored datetime into date + time parts for the pickers.
-  const [reminderDate, setReminderDate] = useState(
-    task.reminder_time ? task.reminder_time.slice(0, 10) : "",
-  );
-  const [reminderTime, setReminderTime] = useState(
-    task.reminder_time ? task.reminder_time.slice(11, 16) : null,
-  );
-
-  function buildReminderTime() {
-    if (!reminderDate) return null;
-    const t = reminderTime ?? "09:00";
-    return `${reminderDate}T${t}:00`;
-  }
-
-  async function commit() {
-    const trimmed = content.trim();
-    if (trimmed) {
-      await api.updateTask(task.id, {
-        content: trimmed,
-        description: description.trim() || null,
-        priority,
-        due_date: dueDate || null,
-        due_time: dueTime || null,
-        reminder_time: buildReminderTime(),
-        effort: effort ? parseFloat(effort) : null,
-        recurrence_rule: recurrenceRule || null,
-        label_ids: labels.map((l) => l.id),
-      });
-      onChanged();
-    }
-    onDone();
-  }
-
-  async function save(e) {
-    e.preventDefault();
-    await commit();
-  }
-
-  const ref = useClickOutside(commit);
-
-  return (
-    <form
-      ref={ref}
-      onSubmit={save}
-      className="animate-pop my-1.5 rounded-lg border border-border bg-surface p-3 shadow-pop"
-    >
-      <input
-        autoFocus
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="mb-2 w-full bg-transparent text-text-primary focus:outline-none"
-      />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description"
-        rows={2}
-        className="mb-2 w-full resize-none rounded bg-elevated px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:outline-none"
-      />
-
-      {/* Row 1: Priority · Due date · Due time · Effort · Recurrence */}
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={priority}
-          onChange={(e) => setPriority(Number(e.target.value))}
-          className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
-        >
-          {PRIORITIES.map((p) => (
-            <option key={p.value} value={p.value}>{p.label}</option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
-        />
-
-        <TimePicker value={dueTime} onChange={setDueTime} />
-
-        <input
-          type="number"
-          min="0.25"
-          max="24"
-          step="0.25"
-          value={effort}
-          onChange={(e) => setEffort(e.target.value)}
-          placeholder="Effort (h)"
-          className="w-24 rounded bg-elevated px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:outline-none"
-        />
-
-        <select
-          value={recurrenceRule}
-          onChange={(e) => setRecurrenceRule(e.target.value)}
-          className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
-        >
-          <option value="">No repeat</option>
-          <option value="daily">Daily</option>
-          <option value="weekdays">Weekdays</option>
-          <option value="weekly">Weekly</option>
-          <option value="biweekly">Biweekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-      </div>
-
-      {/* Row 2: Labels */}
-      <div className="mt-2">
-        <LabelPicker selected={labels} onChange={setLabels} />
-      </div>
-
-      {/* Row 3: Reminder */}
-      <div className="mt-2 flex items-center gap-2">
-        <Bell size={12} className="shrink-0 text-text-muted" />
-        <input
-          type="date"
-          value={reminderDate}
-          onChange={(e) => setReminderDate(e.target.value)}
-          className="rounded bg-elevated px-2 py-1 text-xs text-text-secondary focus:outline-none"
-        />
-        {reminderDate && (
-          <TimePicker value={reminderTime} onChange={setReminderTime} placeholder="9:00 AM" />
-        )}
-        {reminderDate && (
-          <button
-            type="button"
-            onClick={() => { setReminderDate(""); setReminderTime(null); }}
-            className="text-text-muted hover:text-danger"
-            title="Clear reminder"
-          >
-            <X size={12} />
-          </button>
-        )}
-      </div>
-
-      <div className="mt-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onDone}
-          className="rounded px-3 py-1 text-xs text-text-secondary transition-colors duration-150 hover:text-text-primary"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="rounded bg-accent px-3 py-1 text-xs text-white transition-colors duration-150 hover:bg-accent-hover"
-        >
-          Save
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function fmtEffort(h) {
-  if (h < 1) return `${Math.round(h * 60)}m`;
-  if (h === Math.floor(h)) return `${h}h`;
-  return `${h}h`;
-}

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,10 +18,14 @@ def _get_or_404(db: Session, project_id: int) -> models.Project:
 
 
 @router.get("", response_model=list[schemas.ProjectOut])
-def list_projects(db: Session = Depends(get_db)):
-    stmt = select(models.Project).order_by(
-        models.Project.pinned.desc(), models.Project.order, models.Project.id
-    )
+def list_projects(
+    include_archived: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.Project)
+    if not include_archived:
+        stmt = stmt.where(models.Project.archived == False)  # noqa: E712
+    stmt = stmt.order_by(models.Project.pinned.desc(), models.Project.order, models.Project.id)
     return db.scalars(stmt).all()
 
 
@@ -42,7 +48,10 @@ def update_project(
     project_id: int, payload: schemas.ProjectUpdate, db: Session = Depends(get_db)
 ):
     project = _get_or_404(db, project_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "archived" in data:
+        data["archived_at"] = datetime.utcnow() if data["archived"] else None
+    for field, value in data.items():
         setattr(project, field, value)
     db.commit()
     db.refresh(project)
