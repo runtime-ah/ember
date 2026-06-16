@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckSquare, Hash, Link2, List, Minus, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
+import { CheckSquare, Hash, Link2, Minus, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
 import { api } from "../api";
 
 const LIST_TYPES = [
@@ -7,6 +7,59 @@ const LIST_TYPES = [
   { value: "bullet", icon: Minus, label: "Bullet" },
   { value: "numbered", icon: Hash, label: "Numbered" },
 ];
+
+// Wraps each item row with swipe-left-to-delete on touch
+function SwipeRow({ onDelete, children }) {
+  const [offset, setOffset] = useState(0);
+  const touch = useRef({ startX: 0, startY: 0, horiz: false });
+
+  function onTouchStart(e) {
+    touch.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, horiz: false };
+    setOffset(0);
+  }
+
+  function onTouchMove(e) {
+    const dx = e.touches[0].clientX - touch.current.startX;
+    const dy = e.touches[0].clientY - touch.current.startY;
+    if (!touch.current.horiz && Math.abs(dx) > 8) {
+      touch.current.horiz = Math.abs(dx) > Math.abs(dy);
+    }
+    if (touch.current.horiz && dx < 0) {
+      setOffset(Math.max(dx, -100));
+    }
+  }
+
+  function onTouchEnd() {
+    if (offset < -70) {
+      onDelete();
+    } else {
+      setOffset(0);
+    }
+  }
+
+  return (
+    <div
+      className="relative overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Red backdrop revealed as item slides */}
+      <div className="absolute inset-0 flex items-center justify-end bg-danger/90 pr-4">
+        <Trash2 size={16} className="text-white" />
+      </div>
+      <div
+        className="relative bg-surface"
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: offset === 0 ? "transform 0.2s ease" : "none",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function ListDetail({ list, onChanged, onDelete }) {
   const [items, setItems] = useState(list.items ?? []);
@@ -49,7 +102,7 @@ export default function ListDetail({ list, onChanged, onDelete }) {
   }, [showTaskPicker, allTasks]);
 
   async function addItem(e) {
-    e.preventDefault();
+    e?.preventDefault();
     const content = draft.trim();
     if (!content) return;
     const item = await api.addListItem(list.id, { content, order: items.length });
@@ -244,7 +297,7 @@ export default function ListDetail({ list, onChanged, onDelete }) {
         </div>
       )}
 
-      {/* Add item — at top */}
+      {/* Add item — at top, Enter to submit */}
       <form onSubmit={addItem} className="mb-2 flex items-center gap-2.5 border-b border-border/40 pb-3">
         <Plus size={15} className="shrink-0 text-text-muted" />
         <input
@@ -261,62 +314,67 @@ export default function ListDetail({ list, onChanged, onDelete }) {
         )}
       </form>
 
-      {/* Items */}
+      {/* Items — swipe left to delete on mobile */}
       <div className="divide-y divide-border/30">
         {items.length === 0 && (
           <p className="py-6 text-center text-[14px] text-text-muted">No items yet.</p>
         )}
         {items.map((item, idx) => (
-          <div key={item.id} className="group flex items-center gap-3 py-2.5">
-            {/* Left indicator */}
-            {listType === "checkbox" && (
-              <button onClick={() => toggleItem(item)} className="shrink-0 transition-colors">
-                {item.checked
-                  ? <CheckSquare size={20} className="text-accent" />
-                  : <Square size={20} className="text-text-muted hover:text-text-secondary" />}
-              </button>
-            )}
-            {listType === "bullet" && (
-              <span className="shrink-0 text-[18px] leading-none text-text-muted">•</span>
-            )}
-            {listType === "numbered" && (
-              <span className="w-5 shrink-0 text-right text-[13px] font-medium text-text-muted">{idx + 1}.</span>
-            )}
+          <SwipeRow key={item.id} onDelete={() => deleteItem(item)}>
+            <div className="group flex items-center gap-3 py-2.5">
+              {/* Left indicator */}
+              {listType === "checkbox" && (
+                <button onClick={() => toggleItem(item)} className="shrink-0 transition-colors">
+                  {item.checked
+                    ? <CheckSquare size={20} className="text-accent" />
+                    : <Square size={20} className="text-text-muted hover:text-text-secondary" />}
+                </button>
+              )}
+              {listType === "bullet" && (
+                <span className="shrink-0 text-[18px] leading-none text-text-muted">•</span>
+              )}
+              {listType === "numbered" && (
+                <span className="w-5 shrink-0 text-right text-[13px] font-medium text-text-muted">{idx + 1}.</span>
+              )}
 
-            {/* Content — click to edit */}
-            {editingItemId === item.id ? (
-              <input
-                autoFocus
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                onBlur={() => saveItemEdit(item)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveItemEdit(item);
-                  if (e.key === "Escape") setEditingItemId(null);
-                }}
-                className="flex-1 bg-transparent text-[15px] text-text-primary focus:outline-none"
-              />
-            ) : (
-              <span
-                onClick={() => { setEditingItemId(item.id); setEditContent(item.content); }}
-                className={`flex-1 cursor-text text-[15px] leading-snug ${
-                  listType === "checkbox" && item.checked
-                    ? "text-text-muted line-through"
-                    : "text-text-primary"
-                }`}
+              {/* Content — click to edit, Enter saves and refocuses add input */}
+              {editingItemId === item.id ? (
+                <input
+                  autoFocus
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onBlur={() => saveItemEdit(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      saveItemEdit(item);
+                      addInputRef.current?.focus();
+                    }
+                    if (e.key === "Escape") setEditingItemId(null);
+                  }}
+                  className="flex-1 bg-transparent text-[15px] text-text-primary focus:outline-none"
+                />
+              ) : (
+                <span
+                  onClick={() => { setEditingItemId(item.id); setEditContent(item.content); }}
+                  className={`flex-1 cursor-text text-[15px] leading-snug ${
+                    listType === "checkbox" && item.checked
+                      ? "text-text-muted line-through"
+                      : "text-text-primary"
+                  }`}
+                >
+                  {item.content}
+                </span>
+              )}
+
+              {/* Delete (desktop hover) */}
+              <button
+                onClick={() => deleteItem(item)}
+                className="shrink-0 text-text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
               >
-                {item.content}
-              </span>
-            )}
-
-            {/* Delete */}
-            <button
-              onClick={() => deleteItem(item)}
-              className="shrink-0 text-text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
-            >
-              <X size={14} />
-            </button>
-          </div>
+                <X size={14} />
+              </button>
+            </div>
+          </SwipeRow>
         ))}
       </div>
     </div>
