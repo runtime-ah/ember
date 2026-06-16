@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   Check,
   ChevronDown,
@@ -51,6 +53,9 @@ export default function Sidebar({
   const [addingView, setAddingView] = useState(false);
   const [editingViewId, setEditingViewId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null); // { kind, id, x, y }
+  const [archivedProjects, setArchivedProjects] = useState([]);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const longPressTimer = useRef(null);
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
@@ -68,6 +73,11 @@ export default function Sidebar({
     refresh();
     window.addEventListener("labels:changed", refresh);
     return () => window.removeEventListener("labels:changed", refresh);
+  }, []);
+
+  useEffect(() => {
+    loadArchivedProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -141,6 +151,38 @@ export default function Sidebar({
     if (activeView?.type === "view" && activeView.id === id) {
       onSelect(projects[0]?.id ?? null);
     }
+  }
+
+  async function loadArchivedProjects() {
+    const all = await api.listProjects(true);
+    setArchivedProjects(all.filter((p) => p.archived));
+  }
+
+  async function archiveProject(id) {
+    setContextMenu(null);
+    await api.archiveProject(id);
+    onProjectsChanged();
+    loadArchivedProjects();
+  }
+
+  async function unarchiveProject(id) {
+    setContextMenu(null);
+    await api.unarchiveProject(id);
+    onProjectsChanged();
+    loadArchivedProjects();
+  }
+
+  function startLongPress(e, kind, id) {
+    const target = e.currentTarget;
+    longPressTimer.current = setTimeout(() => {
+      const rect = target.getBoundingClientRect();
+      setContextMenu({ kind, id, x: rect.left + 4, y: rect.bottom + 2 });
+    }, 500);
+  }
+
+  function cancelLongPress() {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
   }
 
   function isViewActive(type, id) {
@@ -261,8 +303,11 @@ export default function Sidebar({
               <div
                 onClick={() => onSelect(p.id)}
                 onContextMenu={(e) => openContextMenu(e, "project", p.id)}
+                onTouchStart={(e) => startLongPress(e, "project", p.id)}
+                onTouchEnd={cancelLongPress}
+                onTouchMove={cancelLongPress}
                 title={p.name}
-                className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
+                className={`select-none flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
                   active
                     ? "bg-accent-subtle font-medium text-text-primary"
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -281,6 +326,33 @@ export default function Sidebar({
             </div>
           );
         })}
+
+        {/* Archived projects */}
+        {!collapsed && archivedProjects.length > 0 && (
+          <div className="mb-1">
+            <button
+              onClick={() => setArchivedOpen((v) => !v)}
+              className="flex w-full items-center gap-1 px-2 py-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
+            >
+              {archivedOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              Archived
+            </button>
+            {archivedOpen && archivedProjects.map((p) => (
+              <div
+                key={p.id}
+                onContextMenu={(e) => openContextMenu(e, "archived-project", p.id)}
+                onTouchStart={(e) => startLongPress(e, "archived-project", p.id)}
+                onTouchEnd={cancelLongPress}
+                onTouchMove={cancelLongPress}
+                title={p.name}
+                className="select-none flex cursor-default items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] text-text-muted hover:bg-elevated/60 hover:text-text-secondary"
+              >
+                <Icon name={p.icon} size={16} className="shrink-0 opacity-50" style={{ color: p.color }} />
+                <span className="min-w-0 flex-1 truncate opacity-70">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="my-2 border-t border-border/40" />
 
@@ -397,7 +469,10 @@ export default function Sidebar({
                 key={v.id}
                 onClick={() => onOpenView({ type: "view", id: v.id, name: v.name, filter_json: v.filter_json })}
                 onContextMenu={(e) => openContextMenu(e, "view", v.id)}
-                className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
+                onTouchStart={(e) => startLongPress(e, "view", v.id)}
+                onTouchEnd={cancelLongPress}
+                onTouchMove={cancelLongPress}
+                className={`select-none flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
                   active
                     ? "bg-accent-subtle font-medium text-text-primary"
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
@@ -436,6 +511,14 @@ export default function Sidebar({
                 </button>
                 {!p?.pinned && (
                   <button
+                    onClick={() => archiveProject(contextMenu.id)}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+                  >
+                    <Archive size={13} /> Archive
+                  </button>
+                )}
+                {!p?.pinned && (
+                  <button
                     onClick={() => removeProject(contextMenu.id)}
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
                   >
@@ -445,6 +528,14 @@ export default function Sidebar({
               </>
             );
           })()}
+          {contextMenu.kind === "archived-project" && (
+            <button
+              onClick={() => unarchiveProject(contextMenu.id)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+            >
+              <ArchiveRestore size={13} /> Unarchive
+            </button>
+          )}
           {contextMenu.kind === "view" && (
             <>
               <button

@@ -184,25 +184,15 @@ export default function TaskView({ project }) {
                 </span>
                 <div className="ml-auto flex items-center gap-2 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
                   <button
-                    onClick={() => {
-                      if (isCollapsed) toggleCollapsed(s.id);
-                      setAdding(s.id);
-                    }}
-                    className="text-text-muted hover:text-text-primary"
-                    title="Add task to section"
-                  >
-                    <Plus size={15} />
-                  </button>
-                  <button
                     onClick={() => setEditingSectionId(s.id)}
-                    className="text-text-muted hover:text-text-primary"
+                    className="p-1 text-text-muted hover:text-text-primary"
                     title="Edit section"
                   >
                     <Pencil size={13} />
                   </button>
                   <button
                     onClick={() => removeSection(s.id)}
-                    className="text-text-muted hover:text-danger"
+                    className="p-1 text-text-muted hover:text-danger"
                     title="Delete section"
                   >
                     <Trash2 size={13} />
@@ -214,13 +204,20 @@ export default function TaskView({ project }) {
             {!isCollapsed && (
               <div className="mt-1 ml-3 border-l border-border/50 pl-3">
                 {renderTaskList(tasksFor(s.id))}
-                {adding === s.id && (
+                {adding === s.id ? (
                   <AddTask
                     projectId={project.id}
                     sectionId={s.id}
                     onAdded={load}
                     onClose={() => setAdding(false)}
                   />
+                ) : (
+                  <button
+                    onClick={() => setAdding(s.id)}
+                    className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] text-text-muted transition-colors duration-150 hover:bg-elevated/40 hover:text-text-secondary"
+                  >
+                    <Plus size={13} /> Add task
+                  </button>
                 )}
               </div>
             )}

@@ -75,11 +75,14 @@ class ProjectUpdate(BaseModel):
     icon: str | None = None
     order: int | None = None
     pinned: bool | None = None
+    archived: bool | None = None
 
 
 class ProjectOut(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    archived: bool = False
+    archived_at: datetime | None = None
     created_at: datetime
     task_count: int = 0
     completed_count: int = 0
