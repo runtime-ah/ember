@@ -1,12 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckSquare, Link2, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
+import { CheckSquare, Hash, Link2, List, Minus, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
 import { api } from "../api";
+
+const LIST_TYPES = [
+  { value: "checkbox", icon: CheckSquare, label: "Check" },
+  { value: "bullet", icon: Minus, label: "Bullet" },
+  { value: "numbered", icon: Hash, label: "Numbered" },
+];
 
 export default function ListDetail({ list, onChanged, onDelete }) {
   const [items, setItems] = useState(list.items ?? []);
+  const [listType, setListType] = useState(list.list_type ?? "checkbox");
   const [draft, setDraft] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(list.name);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editContent, setEditContent] = useState("");
   const [linkedTask, setLinkedTask] = useState(null);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [taskQuery, setTaskQuery] = useState("");
@@ -17,20 +26,18 @@ export default function ListDetail({ list, onChanged, onDelete }) {
   useEffect(() => {
     setItems(list.items ?? []);
     setName(list.name);
+    setListType(list.list_type ?? "checkbox");
     setLinkedTask(null);
     if (list.task_id) {
       api.listTasks().then((tasks) => {
-        const t = tasks.find((t) => t.id === list.task_id);
-        setLinkedTask(t ?? null);
+        setLinkedTask(tasks.find((t) => t.id === list.task_id) ?? null);
       });
     }
-  }, [list.id, list.task_id]);
+  }, [list.id, list.task_id, list.list_type]);
 
   useEffect(() => {
     if (!showTaskPicker) return;
-    if (!allTasks) {
-      api.listTasks().then(setAllTasks);
-    }
+    if (!allTasks) api.listTasks().then(setAllTasks);
     function onOutside(e) {
       if (taskPickerRef.current && !taskPickerRef.current.contains(e.target)) {
         setShowTaskPicker(false);
@@ -53,6 +60,7 @@ export default function ListDetail({ list, onChanged, onDelete }) {
   }
 
   async function toggleItem(item) {
+    if (listType !== "checkbox") return;
     const updated = await api.updateListItem(list.id, item.id, { checked: !item.checked });
     setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
     onChanged();
@@ -78,6 +86,20 @@ export default function ListDetail({ list, onChanged, onDelete }) {
     onChanged();
   }
 
+  async function saveItemEdit(item) {
+    const trimmed = editContent.trim();
+    setEditingItemId(null);
+    if (!trimmed || trimmed === item.content) return;
+    const updated = await api.updateListItem(list.id, item.id, { content: trimmed });
+    setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)));
+  }
+
+  async function changeType(type) {
+    setListType(type);
+    await api.updateList(list.id, { list_type: type });
+    onChanged();
+  }
+
   async function linkTask(task) {
     await api.updateList(list.id, { task_id: task.id });
     setLinkedTask(task);
@@ -94,46 +116,36 @@ export default function ListDetail({ list, onChanged, onDelete }) {
 
   const checkedCount = items.filter((i) => i.checked).length;
   const pct = items.length ? (checkedCount / items.length) * 100 : 0;
-
   const filteredTasks = allTasks
     ? allTasks
-        .filter(
-          (t) =>
-            t.parent_id == null &&
-            t.content.toLowerCase().includes(taskQuery.toLowerCase().trim())
-        )
+        .filter((t) => t.parent_id == null && t.content.toLowerCase().includes(taskQuery.toLowerCase().trim()))
         .slice(0, 12)
     : [];
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-4">
-        {/* Header */}
-        <div className="mb-5 flex items-start gap-2">
-          {editingName ? (
-            <form
-              onSubmit={(e) => { e.preventDefault(); saveName(); }}
-              className="flex-1"
-            >
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && setEditingName(false)}
-                onBlur={saveName}
-                className="w-full rounded bg-elevated px-2 py-1 text-[22px] font-semibold text-text-primary focus:outline-none"
-              />
-            </form>
-          ) : (
-            <h1
-              className="flex-1 cursor-pointer text-[22px] font-semibold text-text-primary hover:text-accent"
-              onClick={() => setEditingName(true)}
-            >
-              {list.name}
-            </h1>
-          )}
-
+    <div className="mx-auto max-w-xl px-4 py-6">
+      {/* Header */}
+      <div className="mb-3 flex items-start gap-2">
+        {editingName ? (
+          <form onSubmit={(e) => { e.preventDefault(); saveName(); }} className="flex-1">
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setEditingName(false)}
+              onBlur={saveName}
+              className="w-full rounded bg-elevated px-2 py-1 text-[22px] font-semibold text-text-primary focus:outline-none"
+            />
+          </form>
+        ) : (
+          <h1
+            className="flex-1 cursor-pointer text-[22px] font-semibold text-text-primary hover:text-accent"
+            onClick={() => setEditingName(true)}
+          >
+            {list.name}
+          </h1>
+        )}
+        {listType === "checkbox" && (
           <button
             onClick={resetList}
             title="Uncheck all"
@@ -142,149 +154,170 @@ export default function ListDetail({ list, onChanged, onDelete }) {
           >
             <RefreshCw size={15} />
           </button>
+        )}
+        <button
+          onClick={() => { if (confirm("Delete this list?")) onDelete(); }}
+          title="Delete list"
+          className="mt-1 rounded-md p-1.5 text-text-muted transition-colors hover:bg-elevated hover:text-danger"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+
+      {/* Type picker */}
+      <div className="mb-4 flex gap-1">
+        {LIST_TYPES.map(({ value, icon: Icon, label }) => (
           <button
-            onClick={() => { if (confirm("Delete this list?")) onDelete(); }}
-            title="Delete list"
-            className="mt-1 rounded-md p-1.5 text-text-muted transition-colors hover:bg-elevated hover:text-danger"
+            key={value}
+            onClick={() => changeType(value)}
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
+              listType === value
+                ? "bg-accent/15 text-accent"
+                : "text-text-muted hover:bg-elevated hover:text-text-secondary"
+            }`}
           >
-            <Trash2 size={15} />
+            <Icon size={12} />
+            {label}
           </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Linked task */}
-        <div className="mb-4 relative" ref={taskPickerRef}>
-          {linkedTask ? (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-elevated/60 px-3 py-2">
-              <Link2 size={13} className="shrink-0 text-text-muted" />
-              <span className="flex-1 text-[13px] text-text-secondary truncate">
-                Linked: <span className="text-text-primary">{linkedTask.content}</span>
-              </span>
-              <button
-                onClick={unlinkTask}
-                className="shrink-0 text-text-muted hover:text-text-primary"
-                title="Unlink task"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowTaskPicker((v) => !v)}
-              className="flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-secondary transition-colors"
-            >
-              <Link2 size={13} />
-              Link to task
+      {/* Linked task */}
+      <div className="mb-4 relative" ref={taskPickerRef}>
+        {linkedTask ? (
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-elevated/60 px-3 py-2">
+            <Link2 size={13} className="shrink-0 text-text-muted" />
+            <span className="flex-1 truncate text-[13px] text-text-secondary">
+              Linked: <span className="text-text-primary">{linkedTask.content}</span>
+            </span>
+            <button onClick={unlinkTask} className="shrink-0 text-text-muted hover:text-text-primary" title="Unlink">
+              <X size={13} />
             </button>
-          )}
-
-          {showTaskPicker && (
-            <div className="absolute top-full left-0 z-20 mt-1 w-full max-w-sm rounded-xl border border-border bg-surface shadow-pop">
-              <div className="border-b border-border px-3 py-2">
-                <input
-                  autoFocus
-                  value={taskQuery}
-                  onChange={(e) => setTaskQuery(e.target.value)}
-                  placeholder="Search tasks…"
-                  className="w-full bg-transparent text-[14px] text-text-primary placeholder:text-text-muted focus:outline-none"
-                />
-              </div>
-              <div className="max-h-52 overflow-y-auto py-1">
-                {!allTasks && (
-                  <p className="px-3 py-4 text-center text-[13px] text-text-muted">Loading…</p>
-                )}
-                {allTasks && filteredTasks.length === 0 && (
-                  <p className="px-3 py-4 text-center text-[13px] text-text-muted">No tasks found</p>
-                )}
-                {filteredTasks.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => linkTask(t)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-text-muted/40" />
-                    <span className="truncate">{t.content}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        {items.length > 0 && (
-          <div className="mb-5">
-            <div className="mb-1.5 flex items-center justify-between text-[12px] text-text-muted">
-              <span>{checkedCount} of {items.length} done</span>
-              {checkedCount === items.length && items.length > 0 && (
-                <span className="font-medium text-accent">All done!</span>
-              )}
-            </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-elevated">
-              <div
-                className="h-full rounded-full bg-accent transition-all duration-300"
-                style={{ width: `${pct}%` }}
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowTaskPicker((v) => !v)}
+            className="flex items-center gap-1.5 text-[13px] text-text-muted transition-colors hover:text-text-secondary"
+          >
+            <Link2 size={13} /> Link to task
+          </button>
+        )}
+        {showTaskPicker && (
+          <div className="absolute top-full left-0 z-20 mt-1 w-full max-w-sm rounded-xl border border-border bg-surface shadow-pop">
+            <div className="border-b border-border px-3 py-2">
+              <input
+                autoFocus
+                value={taskQuery}
+                onChange={(e) => setTaskQuery(e.target.value)}
+                placeholder="Search tasks…"
+                className="w-full bg-transparent text-[14px] text-text-primary placeholder:text-text-muted focus:outline-none"
               />
+            </div>
+            <div className="max-h-52 overflow-y-auto py-1">
+              {!allTasks && <p className="px-3 py-4 text-center text-[13px] text-text-muted">Loading…</p>}
+              {allTasks && filteredTasks.length === 0 && <p className="px-3 py-4 text-center text-[13px] text-text-muted">No tasks found</p>}
+              {filteredTasks.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => linkTask(t)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-text-muted/40" />
+                  <span className="truncate">{t.content}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
+      </div>
 
-        {/* Items */}
-        <div className="divide-y divide-border/30">
-          {items.map((item) => (
-            <div key={item.id} className="group flex items-center gap-3 py-2.5">
-              <button
-                onClick={() => toggleItem(item)}
-                className="shrink-0 transition-colors"
-              >
-                {item.checked ? (
-                  <CheckSquare size={20} className="text-accent" />
-                ) : (
-                  <Square size={20} className="text-text-muted hover:text-text-secondary" />
-                )}
+      {/* Progress bar (checkbox only) */}
+      {listType === "checkbox" && items.length > 0 && (
+        <div className="mb-5">
+          <div className="mb-1.5 flex items-center justify-between text-[12px] text-text-muted">
+            <span>{checkedCount} of {items.length} done</span>
+            {checkedCount === items.length && <span className="font-medium text-accent">All done!</span>}
+          </div>
+          <div className="h-1 w-full overflow-hidden rounded-full bg-elevated">
+            <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Add item — at top */}
+      <form onSubmit={addItem} className="mb-2 flex items-center gap-2.5 border-b border-border/40 pb-3">
+        <Plus size={15} className="shrink-0 text-text-muted" />
+        <input
+          ref={addInputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Add item…"
+          className="flex-1 bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
+        />
+        {draft.trim() && (
+          <button type="submit" className="shrink-0 rounded bg-accent px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-accent/90">
+            Add
+          </button>
+        )}
+      </form>
+
+      {/* Items */}
+      <div className="divide-y divide-border/30">
+        {items.length === 0 && (
+          <p className="py-6 text-center text-[14px] text-text-muted">No items yet.</p>
+        )}
+        {items.map((item, idx) => (
+          <div key={item.id} className="group flex items-center gap-3 py-2.5">
+            {/* Left indicator */}
+            {listType === "checkbox" && (
+              <button onClick={() => toggleItem(item)} className="shrink-0 transition-colors">
+                {item.checked
+                  ? <CheckSquare size={20} className="text-accent" />
+                  : <Square size={20} className="text-text-muted hover:text-text-secondary" />}
               </button>
+            )}
+            {listType === "bullet" && (
+              <span className="shrink-0 text-[18px] leading-none text-text-muted">•</span>
+            )}
+            {listType === "numbered" && (
+              <span className="w-5 shrink-0 text-right text-[13px] font-medium text-text-muted">{idx + 1}.</span>
+            )}
+
+            {/* Content — click to edit */}
+            {editingItemId === item.id ? (
+              <input
+                autoFocus
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onBlur={() => saveItemEdit(item)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveItemEdit(item);
+                  if (e.key === "Escape") setEditingItemId(null);
+                }}
+                className="flex-1 bg-transparent text-[15px] text-text-primary focus:outline-none"
+              />
+            ) : (
               <span
-                className={`flex-1 text-[15px] leading-snug ${
-                  item.checked ? "text-text-muted line-through" : "text-text-primary"
+                onClick={() => { setEditingItemId(item.id); setEditContent(item.content); }}
+                className={`flex-1 cursor-text text-[15px] leading-snug ${
+                  listType === "checkbox" && item.checked
+                    ? "text-text-muted line-through"
+                    : "text-text-primary"
                 }`}
               >
                 {item.content}
               </span>
-              <button
-                onClick={() => deleteItem(item)}
-                className="shrink-0 text-text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-          {items.length === 0 && (
-            <p className="py-6 text-center text-[14px] text-text-muted">
-              No items yet — add one below.
-            </p>
-          )}
-        </div>
-      </div>
+            )}
 
-      {/* Sticky add-item bar */}
-      <div className="shrink-0 border-t border-border bg-surface px-4 py-3">
-        <form onSubmit={addItem} className="flex items-center gap-2.5">
-          <Plus size={16} className="shrink-0 text-text-muted" />
-          <input
-            ref={addInputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add item…"
-            className="flex-1 bg-transparent text-[15px] text-text-primary placeholder:text-text-muted focus:outline-none"
-          />
-          {draft.trim() && (
+            {/* Delete */}
             <button
-              type="submit"
-              className="shrink-0 rounded bg-accent px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-accent/90"
+              onClick={() => deleteItem(item)}
+              className="shrink-0 text-text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
             >
-              Add
+              <X size={14} />
             </button>
-          )}
-        </form>
+          </div>
+        ))}
       </div>
     </div>
   );

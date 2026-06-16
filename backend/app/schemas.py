@@ -200,6 +200,7 @@ class ListBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     icon: str | None = None
     color: str = "#c96442"
+    list_type: str = "checkbox"
     task_id: int | None = None
     order: int = 0
 
@@ -212,6 +213,7 @@ class ListUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     icon: str | None = None
     color: str | None = None
+    list_type: str | None = None
     task_id: int | None = None
     order: int | None = None
 

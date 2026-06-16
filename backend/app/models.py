@@ -152,6 +152,7 @@ class List(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     icon: Mapped[str | None] = mapped_column(String(64), nullable=True)
     color: Mapped[str] = mapped_column(String(32), default="#c96442")
+    list_type: Mapped[str] = mapped_column(String(20), default="checkbox")  # checkbox | bullet | numbered
     task_id: Mapped[int | None] = mapped_column(
         ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
     )
