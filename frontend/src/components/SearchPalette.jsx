@@ -159,22 +159,26 @@ export default function SearchPalette({ projects, onClose, onNavigate }) {
             const due = formatDue(task.due_date, task.due_time);
             const dotColor = priorityColor(task.priority);
             const isSelected = idx === selectedIdx;
+            const matchInDesc = q && !task.content.toLowerCase().includes(q) && task.description?.toLowerCase().includes(q);
 
             return (
               <button
                 key={task.id}
                 onClick={() => openTask(task)}
                 onMouseEnter={() => setSelectedIdx(idx)}
-                className={`flex w-full items-center gap-2.5 px-4 py-2 text-left transition-colors duration-75 ${
+                className={`flex w-full items-start gap-2.5 px-4 py-2 text-left transition-colors duration-75 ${
                   isSelected ? "bg-accent/10" : "hover:bg-elevated/60"
                 }`}
               >
                 <span
-                  className="mt-px h-3.5 w-3.5 shrink-0 rounded-full border"
+                  className="mt-1 h-3.5 w-3.5 shrink-0 rounded-full border"
                   style={{ borderColor: dotColor ?? "var(--color-text-muted)" }}
                 />
-                <span className="flex-1 truncate text-[14px] text-text-primary">
-                  {task.content}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] text-text-primary">{task.content}</span>
+                  {matchInDesc && (
+                    <span className="block truncate text-[11px] text-text-muted">{task.description}</span>
+                  )}
                 </span>
                 {due && (
                   <span
