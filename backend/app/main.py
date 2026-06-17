@@ -15,7 +15,7 @@ from app import ical
 from app.brief import build_brief
 from app.config import settings
 from app.database import get_db, init_db
-from app.routers import labels, lists, projects, sections, tasks, views
+from app.routers import labels, lists, projects, push, reminders, sections, tasks, views
 from app.scheduler import shutdown_scheduler, start_scheduler
 
 
@@ -43,6 +43,8 @@ app.include_router(views.router)
 app.include_router(projects.router)
 app.include_router(sections.router)
 app.include_router(tasks.router)
+app.include_router(reminders.router)
+app.include_router(push.router)
 
 
 @app.get("/api/health")

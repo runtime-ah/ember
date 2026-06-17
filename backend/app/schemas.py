@@ -228,3 +228,52 @@ class ListOut(ListBase):
     items: list[ListItemOut] = []
     item_count: int = 0
     checked_count: int = 0
+
+
+# --- Reminders ---
+
+
+class ReminderBase(BaseModel):
+    message: str = Field(min_length=1, max_length=500)
+    fire_time: datetime
+    recurrence_rule: str | None = None
+    task_id: int | None = None
+    order: int = 0
+
+
+class ReminderCreate(ReminderBase):
+    pass
+
+
+class ReminderUpdate(BaseModel):
+    message: str | None = Field(default=None, min_length=1, max_length=500)
+    fire_time: datetime | None = None
+    recurrence_rule: str | None = None
+    task_id: int | None = None
+    order: int | None = None
+
+
+class ReminderOut(ReminderBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    sent: bool
+    sent_at: datetime | None
+    created_at: datetime
+
+
+# --- Web Push ---
+
+
+class PushSubscribeIn(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+    ua_label: str | None = None
+
+
+class PushSubscribeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    endpoint: str
+    ua_label: str | None
+    created_at: datetime

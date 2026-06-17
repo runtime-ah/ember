@@ -76,7 +76,7 @@ export default function AddTask({
     // Merge, deduplicate
     const labelIds = [...new Set([...nlLabelIds, ...manualLabelIds])];
 
-    await api.createTask({
+    const task = await api.createTask({
       project_id: projectId,
       section_id: sectionId,
       parent_id: parentId,
@@ -84,11 +84,14 @@ export default function AddTask({
       priority: effectivePriority,
       due_date: effectiveDueDate || null,
       due_time: effectiveDueTime || null,
-      reminder_time: buildReminderTime(),
       effort: effort ? parseFloat(effort) : null,
       recurrence_rule: recurrenceRule || null,
       label_ids: labelIds,
     });
+    const fire_time = buildReminderTime();
+    if (fire_time && task?.id) {
+      await api.createReminder({ task_id: task.id, message: content, fire_time }).catch(() => {});
+    }
     onAdded();
     return true;
   }

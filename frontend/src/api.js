@@ -69,6 +69,24 @@ export const api = {
     request("/tasks/reorder", { method: "POST", body: JSON.stringify({ items }) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: "DELETE" }),
 
+  // Reminders
+  listReminders: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)),
+    ).toString();
+    return request(`/reminders${qs ? `?${qs}` : ""}`);
+  },
+  createReminder: (data) => request("/reminders", { method: "POST", body: JSON.stringify(data) }),
+  updateReminder: (id, data) =>
+    request(`/reminders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteReminder: (id) => request(`/reminders/${id}`, { method: "DELETE" }),
+
+  // Web Push
+  getVapidPublicKey: () => request("/push/vapid-public-key"),
+  subscribePush: (data) => request("/push/subscribe", { method: "POST", body: JSON.stringify(data) }),
+  unsubscribePush: (endpoint) =>
+    request("/push/unsubscribe", { method: "POST", body: JSON.stringify({ endpoint }) }),
+
   // Lists
   listLists: (includeArchived = false) =>
     request(`/lists${includeArchived ? "?include_archived=true" : ""}`),

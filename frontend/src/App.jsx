@@ -6,6 +6,7 @@ import TaskView from "./components/TaskView";
 import CalendarView from "./components/CalendarView";
 import FilteredTaskView from "./components/FilteredTaskView";
 import ListDetail from "./components/ListDetail";
+import RemindersView from "./components/RemindersView";
 import EmberFlame from "./components/EmberFlame";
 import ThemeToggle from "./components/ThemeToggle";
 import SearchPalette from "./components/SearchPalette";
@@ -22,6 +23,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [lists, setLists] = useState([]);
   const [views, setViews] = useState([]);
+  const [upcomingReminderCount, setUpcomingReminderCount] = useState(0);
   const [selectedId, setSelectedId] = useState(() => readNav().selectedId ?? null);
   const [activeView, setActiveView] = useState(() => readNav().activeView ?? null);
   const [activeList, setActiveList] = useState(null); // full list object with items
@@ -72,6 +74,15 @@ export default function App() {
     }
   }
 
+  async function loadReminders() {
+    try {
+      const data = await api.listReminders();
+      setUpcomingReminderCount(data.length);
+    } catch {
+      // non-fatal
+    }
+  }
+
   async function openList(nav) {
     try {
       const lst = await api.getList(nav.id);
@@ -89,6 +100,7 @@ export default function App() {
     loadProjects(true);
     loadViews();
     loadLists();
+    loadReminders();
     // Restore list view if that's what was saved
     const savedNav = readNav();
     if (savedNav.activeView?.type === "list") {
@@ -135,11 +147,22 @@ export default function App() {
     writeNav(null, view);
   }
 
+  function handleOpenReminders() {
+    const view = { type: "reminders" };
+    setActiveView(view);
+    setSelectedId(null);
+    setActiveList(null);
+    setSidebarOpen(false);
+    writeNav(null, view);
+  }
+
   function renderMain() {
     if (!activeView && selected) return <TaskView key={selected.id} project={selected} />;
     if (!activeView) return <p className="p-8 text-text-muted">No projects yet — create one in the sidebar.</p>;
 
     if (activeView.type === "calendar") return <CalendarView />;
+
+    if (activeView.type === "reminders") return <RemindersView onChanged={loadReminders} />;
 
     if (activeView.type === "list" && activeList) {
       const leaveList = () => {
@@ -206,7 +229,10 @@ export default function App() {
         onViewsChanged={loadViews}
         calendarActive={activeView?.type === "calendar"}
         onOpenCalendar={handleOpenCalendar}
-        activeView={activeView?.type !== "calendar" ? activeView : null}
+        remindersActive={activeView?.type === "reminders"}
+        onOpenReminders={handleOpenReminders}
+        upcomingReminderCount={upcomingReminderCount}
+        activeView={activeView?.type !== "calendar" && activeView?.type !== "reminders" ? activeView : null}
         onOpenView={handleOpenView}
         onOpenList={openList}
         open={sidebarOpen}

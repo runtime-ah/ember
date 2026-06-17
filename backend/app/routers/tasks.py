@@ -42,6 +42,12 @@ def _sync_labels(db: Session, task: models.Task, label_ids: list[int]) -> None:
     task.labels = list(labels)
 
 
+def _reminders_for_task(db: Session, task_id: int) -> list[models.Reminder]:
+    return list(db.scalars(
+        select(models.Reminder).where(models.Reminder.task_id == task_id)
+    ).all())
+
+
 def _next_due_date(rule: str, current: date | None) -> date:
     base = current or date.today()
     if rule == "daily":
@@ -116,7 +122,6 @@ def create_task(payload: schemas.TaskCreate, db: Session = Depends(get_db)):
     _sync_labels(db, task, payload.label_ids)
     db.commit()
     db.refresh(task)
-    sync_reminder(task)
     return task
 
 
@@ -137,7 +142,6 @@ def update_task(task_id: int, payload: schemas.TaskUpdate, db: Session = Depends
         _sync_labels(db, task, payload.label_ids)
     db.commit()
     db.refresh(task)
-    sync_reminder(task)
     return task
 
 
@@ -146,9 +150,12 @@ def complete_task(task_id: int, db: Session = Depends(get_db)):
     task = _get_or_404(db, task_id)
     task.completed = True
     task.completed_at = datetime.now()
+    # Silence any pending reminders for this task.
+    for rem in _reminders_for_task(db, task.id):
+        remove_reminder(rem.id)
+        rem.sent = True
     db.commit()
     db.refresh(task)
-    remove_reminder(task.id)
 
     # Spawn the next occurrence for top-level recurring tasks.
     if task.recurrence_rule and task.parent_id is None:
@@ -168,7 +175,6 @@ def complete_task(task_id: int, db: Session = Depends(get_db)):
         db.add(next_task)
         db.commit()
         db.refresh(next_task)
-        sync_reminder(next_task)
 
     return task
 
@@ -178,9 +184,15 @@ def uncomplete_task(task_id: int, db: Session = Depends(get_db)):
     task = _get_or_404(db, task_id)
     task.completed = False
     task.completed_at = None
+    # Re-arm any future reminders that were silenced when the task was completed.
+    for rem in _reminders_for_task(db, task.id):
+        if rem.fire_time > datetime.now():
+            rem.sent = False
+            rem.sent_at = None
     db.commit()
     db.refresh(task)
-    sync_reminder(task)
+    for rem in _reminders_for_task(db, task.id):
+        sync_reminder(rem)
     return task
 
 
@@ -198,6 +210,8 @@ def reorder_tasks(payload: schemas.ReorderRequest, db: Session = Depends(get_db)
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task_id: int, db: Session = Depends(get_db)):
     task = _get_or_404(db, task_id)
+    # Remove in-memory scheduler jobs before DB cascade deletes the rows.
+    for rem in _reminders_for_task(db, task_id):
+        remove_reminder(rem.id)
     db.delete(task)
     db.commit()
-    remove_reminder(task_id)

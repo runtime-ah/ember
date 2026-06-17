@@ -40,6 +40,54 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _run_lightweight_migrations()
+    _backfill_reminders_from_tasks()
+
+
+def _backfill_reminders_from_tasks() -> None:
+    """One-time migration: copy task.reminder_time values into the Reminder table.
+    Guarded by an empty-table check so it never duplicates on subsequent boots."""
+    import logging
+    from datetime import datetime
+
+    from sqlalchemy import text
+
+    log = logging.getLogger("todo.db")
+    with SessionLocal() as db:
+        count = db.execute(text("SELECT COUNT(*) FROM reminders")).scalar()
+        if count and count > 0:
+            return
+        rows = db.execute(
+            text("SELECT id, content, reminder_time, completed FROM tasks WHERE reminder_time IS NOT NULL")
+        ).fetchall()
+        now = datetime.now()
+        inserted = 0
+        for row in rows:
+            task_id, content, reminder_time_str, completed = row
+            if completed:
+                continue
+            try:
+                fire_time = datetime.fromisoformat(reminder_time_str)
+            except (TypeError, ValueError):
+                continue
+            sent = fire_time <= now
+            db.execute(
+                text(
+                    "INSERT INTO reminders (task_id, message, fire_time, sent, sent_at, created_at)"
+                    " VALUES (:task_id, :message, :fire_time, :sent, :sent_at, :now)"
+                ),
+                {
+                    "task_id": task_id,
+                    "message": content,
+                    "fire_time": reminder_time_str,
+                    "sent": 1 if sent else 0,
+                    "sent_at": reminder_time_str if sent else None,
+                    "now": now.isoformat(),
+                },
+            )
+            inserted += 1
+        db.commit()
+    if inserted:
+        log.info("Backfilled %d task reminder(s) into reminders table", inserted)
 
 
 def _run_lightweight_migrations() -> None:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, ChevronRight, Flag, Calendar, Bell, Tag, Clock, Folder, Plus } from "lucide-react";
+import { X, ChevronRight, Flag, Calendar, Bell, Tag, Clock, Folder, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { PRIORITIES } from "../lib/priority";
 import LabelPicker from "./LabelPicker";
@@ -54,12 +54,10 @@ export default function TaskModal({ task, subtasks: initialSubtasks = [], projec
   const [labels, setLabels] = useState(task.labels ?? []);
   const [effort, setEffort] = useState(task.effort != null ? String(task.effort) : "");
   const [recurrenceRule, setRecurrenceRule] = useState(task.recurrence_rule ?? "");
-  const [reminderDate, setReminderDate] = useState(
-    task.reminder_time ? task.reminder_time.slice(0, 10) : ""
-  );
-  const [reminderTime, setReminderTime] = useState(
-    task.reminder_time ? task.reminder_time.slice(11, 16) : null
-  );
+  const [taskReminders, setTaskReminders] = useState([]);
+  const [addingReminder, setAddingReminder] = useState(false);
+  const [newReminderDate, setNewReminderDate] = useState("");
+  const [newReminderTime, setNewReminderTime] = useState(null);
   const [moveProjectId, setMoveProjectId] = useState(task.project_id);
   const [moveSectionId, setMoveSectionId] = useState(task.section_id ?? "");
   const [allProjects, setAllProjects] = useState([]);
@@ -71,6 +69,7 @@ export default function TaskModal({ task, subtasks: initialSubtasks = [], projec
   useEffect(() => {
     api.listProjects().then(setAllProjects);
     api.listSections(task.project_id).then(setAllSections);
+    api.listReminders({ task_id: task.id, include_past: true }).then(setTaskReminders).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -85,11 +84,6 @@ export default function TaskModal({ task, subtasks: initialSubtasks = [], projec
     api.listSections(id).then(setAllSections);
   }
 
-  function buildReminderTime() {
-    if (!reminderDate) return null;
-    return `${reminderDate}T${reminderTime ?? "09:00"}:00`;
-  }
-
   async function save() {
     const trimmed = content.trim();
     if (trimmed) {
@@ -99,7 +93,6 @@ export default function TaskModal({ task, subtasks: initialSubtasks = [], projec
         priority,
         due_date: dueDate || null,
         due_time: dueTime || null,
-        reminder_time: buildReminderTime(),
         effort: effort ? parseFloat(effort) : null,
         recurrence_rule: recurrenceRule || null,
         label_ids: labels.map((l) => l.id),
@@ -109,6 +102,22 @@ export default function TaskModal({ task, subtasks: initialSubtasks = [], projec
       onChanged();
     }
     onDone();
+  }
+
+  async function addReminder() {
+    if (!newReminderDate) return;
+    const fire_time = `${newReminderDate}T${newReminderTime ?? "09:00"}:00`;
+    await api.createReminder({ task_id: task.id, message: content.trim() || task.content, fire_time });
+    const updated = await api.listReminders({ task_id: task.id, include_past: true });
+    setTaskReminders(updated);
+    setAddingReminder(false);
+    setNewReminderDate("");
+    setNewReminderTime(null);
+  }
+
+  async function deleteReminder(id) {
+    await api.deleteReminder(id);
+    setTaskReminders((prev) => prev.filter((r) => r.id !== id));
   }
 
   async function refreshSubtasks() {
@@ -240,26 +249,52 @@ export default function TaskModal({ task, subtasks: initialSubtasks = [], projec
 
       <PropRow
         icon={Bell}
-        label="Reminder"
-        summary={fmtDateTime(reminderDate, reminderTime)}
+        label="Reminders"
+        summary={taskReminders.length > 0 ? `${taskReminders.length} set` : null}
         open={activeField === "reminder"}
         onToggle={() => toggleField("reminder")}
       >
         <div className="flex flex-col gap-1.5">
-          <input
-            type="date"
-            value={reminderDate}
-            onChange={(e) => setReminderDate(e.target.value)}
-            className="w-full rounded bg-elevated px-2 py-1.5 text-xs text-text-secondary focus:outline-none"
-          />
-          {reminderDate && <TimePicker value={reminderTime} onChange={setReminderTime} />}
-          {reminderDate && (
+          {taskReminders.map((rem) => (
+            <div key={rem.id} className="flex items-center gap-2 rounded bg-elevated px-2 py-1.5">
+              <Bell size={11} className="shrink-0 text-text-muted" />
+              <span className="flex-1 text-[11px] text-text-secondary">
+                {fmtDateTime(rem.fire_time.slice(0, 10), rem.fire_time.slice(11, 16))}
+              </span>
+              <button
+                type="button"
+                onClick={() => deleteReminder(rem.id)}
+                className="text-text-muted transition-colors hover:text-danger"
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+          {addingReminder ? (
+            <div className="flex flex-col gap-1.5 rounded border border-border p-2">
+              <input
+                type="date"
+                value={newReminderDate}
+                onChange={(e) => setNewReminderDate(e.target.value)}
+                className="w-full rounded bg-elevated px-2 py-1.5 text-xs text-text-secondary focus:outline-none"
+              />
+              {newReminderDate && <TimePicker value={newReminderTime} onChange={setNewReminderTime} />}
+              <div className="flex gap-2">
+                <button type="button" onClick={addReminder} className="rounded bg-accent px-2 py-1 text-[11px] text-white hover:bg-accent-hover">
+                  Add
+                </button>
+                <button type="button" onClick={() => { setAddingReminder(false); setNewReminderDate(""); setNewReminderTime(null); }} className="text-[11px] text-text-muted hover:text-text-primary">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => { setReminderDate(""); setReminderTime(null); }}
-              className="text-left text-xs text-text-muted transition-colors hover:text-danger"
+              onClick={() => setAddingReminder(true)}
+              className="flex items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-secondary"
             >
-              Clear reminder
+              <Plus size={11} /> Add reminder
             </button>
           )}
         </div>

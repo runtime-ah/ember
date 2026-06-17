@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   Archive,
   ArchiveRestore,
+  Bell,
   CalendarDays,
   Check,
   CheckSquare,
@@ -46,6 +47,9 @@ export default function Sidebar({
   onViewsChanged,
   calendarActive,
   onOpenCalendar,
+  remindersActive,
+  onOpenReminders,
+  upcomingReminderCount,
   activeView,
   onOpenView,
   onOpenList,
@@ -307,6 +311,26 @@ export default function Sidebar({
           onOpenCalendar,
           calendarActive,
         )}
+
+        {/* Reminders */}
+        <div
+          onClick={onOpenReminders}
+          className={`select-none flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] transition-colors duration-150 ${
+            remindersActive
+              ? "bg-accent-subtle font-medium text-text-primary"
+              : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
+          }`}
+        >
+          <Bell size={16} className="shrink-0 text-accent" />
+          <span className={`flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
+            Reminders
+          </span>
+          {upcomingReminderCount > 0 && !collapsed && (
+            <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[12px] text-text-muted">
+              {upcomingReminderCount}
+            </span>
+          )}
+        </div>
 
         <div className="my-2 border-t border-border/40" />
 

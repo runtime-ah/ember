@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     caldav_username: str = ""
     caldav_password: str = ""  # app-specific password
 
+    # --- Web Push (VAPID) ---
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:alex.runtime1@gmail.com"
+
     @property
     def database_url(self) -> str:
         return f"sqlite:///{self.database_path}"

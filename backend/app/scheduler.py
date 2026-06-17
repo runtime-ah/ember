@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+from calendar import monthrange
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -9,8 +10,8 @@ from sqlalchemy import select
 from app.brief import build_brief, format_brief_text
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Task
-from app.notifications import send_push
+from app.models import Reminder, Task
+from app.notifications import dispatch_notification
 
 log = logging.getLogger("todo.scheduler")
 
@@ -19,48 +20,81 @@ scheduler = BackgroundScheduler()
 _DAILY_BRIEF_ID = "daily-brief"
 
 
-def _reminder_job_id(task_id: int) -> str:
-    return f"reminder:{task_id}"
+def _reminder_job_id(reminder_id: int) -> str:
+    return f"reminder:{reminder_id}"
 
 
-def _fire_reminder(task_id: int) -> None:
-    """Runs at a task's reminder_time. Reloads the task so we don't notify for
-    something completed or deleted since the job was scheduled."""
+def _next_fire_time(rule: str, current: datetime) -> datetime:
+    """Advance fire_time by one recurrence interval, preserving time-of-day."""
+    d = current.date()
+    t = current.time()
+    if rule == "daily":
+        d = d + timedelta(days=1)
+    elif rule == "weekdays":
+        d = d + timedelta(days=1)
+        while d.weekday() >= 5:
+            d += timedelta(days=1)
+    elif rule == "weekly":
+        d = d + timedelta(weeks=1)
+    elif rule == "biweekly":
+        d = d + timedelta(weeks=2)
+    elif rule == "monthly":
+        y, m, day = d.year, d.month, d.day
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+        day = min(day, monthrange(y, m)[1])
+        d = d.replace(year=y, month=m, day=day)
+    else:
+        d = d + timedelta(days=1)
+    return datetime.combine(d, t)
+
+
+def _fire_reminder(reminder_id: int) -> None:
+    """Runs at a reminder's fire_time. Reloads from DB so we don't notify for
+    reminders whose linked task has since been completed or deleted."""
     with SessionLocal() as db:
-        task = db.get(Task, task_id)
-        if task is None or task.completed or task.reminder_time is None:
+        rem = db.get(Reminder, reminder_id)
+        if rem is None:
             return
-        send_push(
-            task.content,
-            title="Reminder",
-            priority=4,
-            tags=["bell"],
-        )
+        if rem.task_id is not None:
+            task = db.get(Task, rem.task_id)
+            if task is None or task.completed:
+                return
+        dispatch_notification(rem.message, title="Reminder", priority=4, tags=["bell"])
+        if rem.recurrence_rule:
+            rem.fire_time = _next_fire_time(rem.recurrence_rule, rem.fire_time)
+            db.commit()
+            sync_reminder(rem)
+        else:
+            rem.sent = True
+            rem.sent_at = datetime.now()
+            db.commit()
 
 
-def sync_reminder(task: Task) -> None:
-    """Schedule (or reschedule) a task's reminder. Removes any existing job and
-    only re-adds it if the reminder is pending and in the future."""
-    job_id = _reminder_job_id(task.id)
+def sync_reminder(reminder: Reminder) -> None:
+    """Schedule (or reschedule) a reminder. Removes any existing job and only
+    re-adds it if the reminder is still pending and in the future."""
+    job_id = _reminder_job_id(reminder.id)
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
 
-    if task.completed or task.reminder_time is None:
+    if reminder.sent and not reminder.recurrence_rule:
         return
-    if task.reminder_time <= datetime.now():
+    if reminder.fire_time <= datetime.now():
         return
 
     scheduler.add_job(
         _fire_reminder,
-        trigger=DateTrigger(run_date=task.reminder_time),
-        args=[task.id],
+        trigger=DateTrigger(run_date=reminder.fire_time),
+        args=[reminder.id],
         id=job_id,
         replace_existing=True,
     )
 
 
-def remove_reminder(task_id: int) -> None:
-    job_id = _reminder_job_id(task_id)
+def remove_reminder(reminder_id: int) -> None:
+    job_id = _reminder_job_id(reminder_id)
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
 
@@ -68,7 +102,9 @@ def remove_reminder(task_id: int) -> None:
 def _send_daily_brief() -> None:
     with SessionLocal() as db:
         brief = build_brief(db)
-    send_push(format_brief_text(brief), title="Daily Brief", priority=3, tags=["calendar"])
+    dispatch_notification(
+        format_brief_text(brief), title="Daily Brief", priority=3, tags=["calendar"]
+    )
 
 
 def _schedule_daily_brief() -> None:
@@ -86,20 +122,18 @@ def _schedule_daily_brief() -> None:
 
 
 def _schedule_existing_reminders() -> None:
-    """On startup, schedule reminders for all pending future tasks. Reminders
-    whose time already passed while the server was down are skipped (we don't
-    want to fire stale notifications on every boot)."""
+    """On startup, schedule all pending future reminders. Already-fired one-shots
+    and past reminders are skipped — we don't want stale notifications on every boot."""
     with SessionLocal() as db:
-        tasks = db.scalars(
-            select(Task).where(
-                Task.completed.is_(False),
-                Task.reminder_time.is_not(None),
-                Task.reminder_time > datetime.now(),
+        reminders = db.scalars(
+            select(Reminder).where(
+                Reminder.fire_time > datetime.now(),
+                (Reminder.sent == False) | (Reminder.recurrence_rule.is_not(None)),  # noqa: E712
             )
         ).all()
-        for task in tasks:
-            sync_reminder(task)
-    log.info("Scheduled %d pending reminder(s)", len(tasks))
+        for rem in reminders:
+            sync_reminder(rem)
+    log.info("Scheduled %d pending reminder(s)", len(reminders))
 
 
 def start_scheduler() -> None:
