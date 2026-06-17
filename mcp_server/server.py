@@ -154,5 +154,85 @@ async def get_brief() -> dict:
     return await _request("GET", "/api/brief")
 
 
+# --- Lists ---
+
+
+@mcp.tool()
+async def get_lists() -> list[dict]:
+    """Return all lists with their items and progress counts.
+    Each list has: id, name, list_type (checkbox/bullet/numbered),
+    item_count, checked_count, and an items array."""
+    return await _request("GET", "/api/lists")
+
+
+@mcp.tool()
+async def create_list(
+    name: str,
+    list_type: str = "bullet",
+) -> dict:
+    """Create a new list and return it.
+
+    Args:
+        name: list title
+        list_type: 'checkbox' (checkable items with progress), 'bullet' (dots),
+                   or 'numbered' (auto-numbered). Defaults to 'bullet'.
+    """
+    return await _request("POST", "/api/lists", json={"name": name, "list_type": list_type})
+
+
+@mcp.tool()
+async def add_list_item(list_id: int, content: str) -> dict:
+    """Append an item to a list.
+
+    Args:
+        list_id: target list id (see get_lists)
+        content: item text
+    """
+    lists = await _request("GET", "/api/lists")
+    existing = next((l for l in lists if l["id"] == list_id), None)
+    order = len(existing["items"]) if existing else 0
+    return await _request("POST", f"/api/lists/{list_id}/items", json={"content": content, "order": order})
+
+
+@mcp.tool()
+async def update_list_item(
+    list_id: int,
+    item_id: int,
+    content: str | None = None,
+    checked: bool | None = None,
+) -> dict:
+    """Edit a list item's text or checked state.
+
+    Args:
+        list_id: the list the item belongs to
+        item_id: the item to edit
+        content: new text (omit to leave unchanged)
+        checked: True to check, False to uncheck (omit to leave unchanged)
+    """
+    body = _drop_none({"content": content, "checked": checked})
+    return await _request("PATCH", f"/api/lists/{list_id}/items/{item_id}", json=body)
+
+
+@mcp.tool()
+async def delete_list_item(list_id: int, item_id: int) -> None:
+    """Remove an item from a list permanently.
+
+    Args:
+        list_id: the list the item belongs to
+        item_id: the item to remove
+    """
+    await _request("DELETE", f"/api/lists/{list_id}/items/{item_id}")
+
+
+@mcp.tool()
+async def reset_list(list_id: int) -> dict:
+    """Uncheck all items in a list (quick-reset for checkbox lists).
+
+    Args:
+        list_id: the list to reset
+    """
+    return await _request("POST", f"/api/lists/{list_id}/reset")
+
+
 if __name__ == "__main__":
     mcp.run(transport="streamable-http")
