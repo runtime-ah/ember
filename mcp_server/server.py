@@ -1,4 +1,4 @@
-"""MCP server for the self-hosted task manager.
+"""MCP server for Ember, the self-hosted task manager.
 
 Wraps the FastAPI backend over HTTP and exposes tasks/projects/brief as Claude
 tools. Run it on the Pi and add it as a custom connector in Claude.ai via the
@@ -19,7 +19,7 @@ BACKEND = os.environ.get("TODO_MCP_BACKEND_URL", "http://localhost:8000").rstrip
 HOST = os.environ.get("TODO_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("TODO_MCP_PORT", "8765"))
 
-mcp = FastMCP("todo", host=HOST, port=PORT)
+mcp = FastMCP("ember", host=HOST, port=PORT)
 
 
 async def _request(method: str, path: str, **kwargs):
