@@ -157,6 +157,8 @@ class List(Base):
         ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
     )
     order: Mapped[int] = mapped_column(Integer, default=0)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     items: Mapped[list["ListItem"]] = relationship(

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckSquare, Hash, Link2, Minus, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
+import { Archive, CheckSquare, Hash, Link2, Minus, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
 import { api } from "../api";
 
 const LIST_TYPES = [
@@ -61,7 +61,7 @@ function SwipeRow({ onDelete, children }) {
   );
 }
 
-export default function ListDetail({ list, onChanged, onDelete }) {
+export default function ListDetail({ list, onChanged, onArchive, onDelete }) {
   const [items, setItems] = useState(list.items ?? []);
   const [listType, setListType] = useState(list.list_type ?? "checkbox");
   const [draft, setDraft] = useState("");
@@ -208,6 +208,13 @@ export default function ListDetail({ list, onChanged, onDelete }) {
             <RefreshCw size={15} />
           </button>
         )}
+        <button
+          onClick={onArchive}
+          title="Archive list"
+          className="mt-1 rounded-md p-1.5 text-text-muted transition-colors hover:bg-elevated hover:text-text-primary"
+        >
+          <Archive size={15} />
+        </button>
         <button
           onClick={() => { if (confirm("Delete this list?")) onDelete(); }}
           title="Delete list"

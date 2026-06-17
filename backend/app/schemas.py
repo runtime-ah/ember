@@ -216,11 +216,14 @@ class ListUpdate(BaseModel):
     list_type: str | None = None
     task_id: int | None = None
     order: int | None = None
+    archived: bool | None = None
 
 
 class ListOut(ListBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    archived: bool = False
+    archived_at: datetime | None = None
     created_at: datetime
     items: list[ListItemOut] = []
     item_count: int = 0

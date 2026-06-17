@@ -70,10 +70,15 @@ export const api = {
   deleteTask: (id) => request(`/tasks/${id}`, { method: "DELETE" }),
 
   // Lists
-  listLists: () => request("/lists"),
+  listLists: (includeArchived = false) =>
+    request(`/lists${includeArchived ? "?include_archived=true" : ""}`),
   createList: (data) => request("/lists", { method: "POST", body: JSON.stringify(data) }),
   getList: (id) => request(`/lists/${id}`),
   updateList: (id, data) => request(`/lists/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  archiveList: (id) =>
+    request(`/lists/${id}`, { method: "PATCH", body: JSON.stringify({ archived: true }) }),
+  unarchiveList: (id) =>
+    request(`/lists/${id}`, { method: "PATCH", body: JSON.stringify({ archived: false }) }),
   deleteList: (id) => request(`/lists/${id}`, { method: "DELETE" }),
   resetList: (id) => request(`/lists/${id}/reset`, { method: "POST" }),
   addListItem: (listId, data) =>

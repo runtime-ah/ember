@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,10 +25,15 @@ def _get_item_or_404(db: Session, list_id: int, item_id: int) -> models.ListItem
 
 
 @router.get("", response_model=list[schemas.ListOut])
-def get_lists(db: Session = Depends(get_db)):
-    return db.scalars(
-        select(models.List).order_by(models.List.order, models.List.id)
-    ).all()
+def get_lists(
+    include_archived: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    stmt = select(models.List)
+    if not include_archived:
+        stmt = stmt.where(models.List.archived == False)  # noqa: E712
+    stmt = stmt.order_by(models.List.order, models.List.id)
+    return db.scalars(stmt).all()
 
 
 @router.post("", response_model=schemas.ListOut, status_code=status.HTTP_201_CREATED)
@@ -46,7 +53,10 @@ def get_list(list_id: int, db: Session = Depends(get_db)):
 @router.patch("/{list_id}", response_model=schemas.ListOut)
 def update_list(list_id: int, payload: schemas.ListUpdate, db: Session = Depends(get_db)):
     lst = _get_or_404(db, list_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "archived" in data:
+        data["archived_at"] = datetime.utcnow() if data["archived"] else None
+    for field, value in data.items():
         setattr(lst, field, value)
     db.commit()
     db.refresh(lst)

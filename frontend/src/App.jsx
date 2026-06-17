@@ -142,18 +142,25 @@ export default function App() {
     if (activeView.type === "calendar") return <CalendarView />;
 
     if (activeView.type === "list" && activeList) {
+      const leaveList = () => {
+        setActiveView(null);
+        setActiveList(null);
+        setSelectedId(projects[0]?.id ?? null);
+        writeNav(projects[0]?.id ?? null, null);
+        loadLists();
+      };
       return (
         <ListDetail
           key={activeList.id}
           list={activeList}
           onChanged={() => loadLists()}
+          onArchive={async () => {
+            await api.archiveList(activeList.id);
+            leaveList();
+          }}
           onDelete={async () => {
             await api.deleteList(activeList.id);
-            setActiveView(null);
-            setActiveList(null);
-            setSelectedId(projects[0]?.id ?? null);
-            writeNav(projects[0]?.id ?? null, null);
-            loadLists();
+            leaveList();
           }}
         />
       );

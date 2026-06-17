@@ -55,7 +55,11 @@ def _run_lightweight_migrations() -> None:
             ("effort", "FLOAT"),
             ("recurrence_rule", "VARCHAR(64)"),
         ],
-        "lists": [("list_type", "VARCHAR(20) DEFAULT 'checkbox'")],
+        "lists": [
+            ("list_type", "VARCHAR(20) DEFAULT 'checkbox'"),
+            ("archived", "BOOLEAN DEFAULT 0"),
+            ("archived_at", "DATETIME"),
+        ],
     }
     inspector = inspect(engine)
     with engine.begin() as conn:

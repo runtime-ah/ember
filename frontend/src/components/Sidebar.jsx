@@ -5,16 +5,25 @@ import {
   ArchiveRestore,
   CalendarDays,
   Check,
+  CheckSquare,
   ChevronDown,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   List,
+  ListOrdered,
   Pencil,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
+
+// Sidebar icon for each list type
+const LIST_TYPE_ICONS = {
+  checkbox: CheckSquare,
+  numbered: ListOrdered,
+  bullet: List,
+};
 
 const LABEL_COLORS = [
   "#c96442", "#e05252", "#e07d52", "#e0c252",
@@ -61,6 +70,8 @@ export default function Sidebar({
   const [contextMenu, setContextMenu] = useState(null); // { kind, id, x, y }
   const [archivedProjects, setArchivedProjects] = useState([]);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [archivedLists, setArchivedLists] = useState([]);
+  const [archivedListsOpen, setArchivedListsOpen] = useState(false);
   const longPressTimer = useRef(null);
 
   useEffect(() => {
@@ -85,6 +96,12 @@ export default function Sidebar({
     loadArchivedProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refresh archived lists whenever the active lists change (e.g. after archive).
+  useEffect(() => {
+    loadArchivedLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lists]);
 
   useEffect(() => {
     function handleClick(e) {
@@ -174,6 +191,23 @@ export default function Sidebar({
     setContextMenu(null);
     if (!confirm("Delete this list and all its items?")) return;
     await api.deleteList(id);
+    onListsChanged();
+  }
+
+  async function loadArchivedLists() {
+    const all = await api.listLists(true);
+    setArchivedLists(all.filter((l) => l.archived));
+  }
+
+  async function archiveList(id) {
+    setContextMenu(null);
+    await api.archiveList(id);
+    onListsChanged();
+  }
+
+  async function unarchiveList(id) {
+    setContextMenu(null);
+    await api.unarchiveList(id);
     onListsChanged();
   }
 
@@ -414,6 +448,8 @@ export default function Sidebar({
             const active = activeView?.type === "list" && activeView.id === lst.id;
             const done = lst.checked_count ?? 0;
             const total = lst.item_count ?? 0;
+            const TypeIcon = LIST_TYPE_ICONS[lst.list_type] ?? List;
+            const showCount = lst.list_type === "checkbox" && total > 0 && !collapsed;
             return (
               <div
                 key={lst.id}
@@ -429,11 +465,11 @@ export default function Sidebar({
                     : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
                 }`}
               >
-                <List size={15} className="shrink-0 text-text-muted" />
+                <TypeIcon size={15} className="shrink-0 text-text-muted" />
                 <span className={`min-w-0 flex-1 truncate transition-opacity duration-150 ${collapsed ? "md:opacity-0" : "opacity-100"}`}>
                   {lst.name}
                 </span>
-                {total > 0 && !collapsed && (
+                {showCount && (
                   <span className="nums shrink-0 rounded-full bg-elevated px-1.5 py-0.5 text-[12px] text-text-muted">
                     {done}/{total}
                   </span>
@@ -441,6 +477,36 @@ export default function Sidebar({
               </div>
             );
           })}
+
+          {/* Archived lists */}
+          {!collapsed && archivedLists.length > 0 && (
+            <div className="mt-1">
+              <button
+                onClick={() => setArchivedListsOpen((v) => !v)}
+                className="flex w-full items-center gap-1 px-2 py-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary"
+              >
+                {archivedListsOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                Archived
+              </button>
+              {archivedListsOpen && archivedLists.map((lst) => {
+                const TypeIcon = LIST_TYPE_ICONS[lst.list_type] ?? List;
+                return (
+                  <div
+                    key={lst.id}
+                    onContextMenu={(e) => openContextMenu(e, "archived-list", lst.id)}
+                    onTouchStart={(e) => startLongPress(e, "archived-list", lst.id)}
+                    onTouchEnd={cancelLongPress}
+                    onTouchMove={cancelLongPress}
+                    title={lst.name}
+                    className="select-none flex cursor-default items-center gap-2.5 rounded-md px-2.5 py-2 text-[16px] text-text-muted hover:bg-elevated/60 hover:text-text-secondary"
+                  >
+                    <TypeIcon size={15} className="shrink-0 opacity-50" />
+                    <span className="min-w-0 flex-1 truncate opacity-70">{lst.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {(lists ?? []).length === 0 && !addingList && (
             <p className="px-2 py-1 text-[13px] text-text-muted">
@@ -648,12 +714,36 @@ export default function Sidebar({
             </>
           )}
           {contextMenu.kind === "list" && (
-            <button
-              onClick={() => deleteListEntry(contextMenu.id)}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
-            >
-              <Trash2 size={13} /> Delete
-            </button>
+            <>
+              <button
+                onClick={() => archiveList(contextMenu.id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+              >
+                <Archive size={13} /> Archive
+              </button>
+              <button
+                onClick={() => deleteListEntry(contextMenu.id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
+              >
+                <Trash2 size={13} /> Delete
+              </button>
+            </>
+          )}
+          {contextMenu.kind === "archived-list" && (
+            <>
+              <button
+                onClick={() => unarchiveList(contextMenu.id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-text-secondary hover:bg-elevated hover:text-text-primary"
+              >
+                <ArchiveRestore size={13} /> Unarchive
+              </button>
+              <button
+                onClick={() => deleteListEntry(contextMenu.id)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] text-danger hover:bg-elevated"
+              >
+                <Trash2 size={13} /> Delete
+              </button>
+            </>
           )}
         </div>,
         document.body
