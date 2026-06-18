@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Clock } from "lucide-react";
 
-// Times from 7am to 10pm in 30-min increments.
+// Times from 6am to 11pm in 15-min increments.
 const TIMES = [];
-for (let h = 7; h <= 22; h++) {
-  TIMES.push(`${String(h).padStart(2, "0")}:00`);
-  if (h < 22) TIMES.push(`${String(h).padStart(2, "0")}:30`);
+for (let h = 6; h <= 23; h++) {
+  for (const m of [0, 15, 30, 45]) {
+    if (h === 23 && m > 0) break;
+    TIMES.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+  }
 }
 
 function fmt(t) {
