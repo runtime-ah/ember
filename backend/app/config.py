@@ -18,10 +18,6 @@ class Settings(BaseSettings):
     # CORS origins allowed to call the API (the Vite dev server in dev).
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
-    # --- Notifications (used from milestone 4; harmless to leave defaulted now) ---
-    ntfy_server: str = "https://ntfy.sh"
-    ntfy_topic: str = ""  # set to a private, hard-to-guess topic to enable push
-
     # --- Daily brief ---
     brief_time: str = "06:00"  # 24h HH:MM, local time
 
