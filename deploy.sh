@@ -13,6 +13,7 @@ rsync -a --delete \
   --exclude='.git/' \
   --exclude='frontend/node_modules/' \
   --exclude='backend/.venv/' \
+  --exclude='backend/.env' \
   --exclude='**/__pycache__/' \
   --exclude='**/*.pyc' \
   --exclude='**/*.db' \
