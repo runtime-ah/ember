@@ -36,7 +36,7 @@ function ReminderRow({ reminder, onDelete, onEdit }) {
           )}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100">
         <button
           onClick={() => onEdit(reminder)}
           className="rounded p-1 text-text-muted transition-colors hover:text-text-primary"
