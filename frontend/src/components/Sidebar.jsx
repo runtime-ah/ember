@@ -593,7 +593,7 @@ export default function Sidebar({
                 </span>
                 <button
                   onClick={(e) => deleteLabel(e, l.id)}
-                  className="opacity-0 text-text-muted hover:text-danger group-hover:opacity-100"
+                  className="text-text-muted hover:text-danger md:opacity-0 md:group-hover:opacity-100"
                   title="Delete tag"
                 >
                   <Trash2 size={11} />
