@@ -55,7 +55,7 @@ def health():
 @app.get("/api/brief")
 def get_brief(db: Session = Depends(get_db)):
     """Today's brief: overdue, due today, important undated tasks, and calendar
-    events. Also pushed daily via ntfy; exposed here for on-demand use and the
+    events. Also pushed daily via Web Push; exposed here for on-demand use and the
     future dashboard widget."""
     return build_brief(db)
 

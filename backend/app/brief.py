@@ -62,7 +62,7 @@ def _event_label(e: dict) -> str:
 
 
 def format_brief_text(brief: dict) -> str:
-    """Render the brief as plain text suitable for an ntfy push body."""
+    """Render the brief as plain text suitable for a Web Push notification body."""
     lines: list[str] = []
 
     def section(title: str, items: list[str]):

@@ -14,8 +14,8 @@ Raspberry Pi over Tailscale; developed and tested on macOS.
 - Create / edit / complete / uncomplete / delete; **drag-to-reorder**
 - Collapsible sidebar; collapsible section banners; show/hide completed
 - Refined-warm UI with **light/dark themes**
-- **Reminders** — per-task `reminder_time`, fired by APScheduler, pushed via ntfy
-- **Daily brief** — cron at `TODO_BRIEF_TIME`, pushed via ntfy; also on-demand at
+- **Reminders** — per-task `reminder_time`, fired by APScheduler, pushed via Web Push
+- **Daily brief** — cron at `TODO_BRIEF_TIME`, pushed via Web Push; also on-demand at
   `GET /api/brief` (overdue, due today, important undated, iCloud events)
 - **Mobile capture** — focused quick-add screen on phone-width viewports
 - **MCP server** ([mcp_server/](mcp_server/)) — exposes tasks to Claude
@@ -24,9 +24,8 @@ Not yet deployed to the Pi (see plan.md backlog).
 
 ### Notifications setup (one-time, to receive on your phone)
 
-1. Install the **ntfy** app (iOS/Android).
-2. Subscribe to the topic in `backend/.env` (`TODO_NTFY_TOPIC`). The topic name is
-   the only secret on `ntfy.sh`, so keep it private.
+Open the Ember web app on your phone and accept the push notification permission
+prompt. This registers your device for Web Push (VAPID). No third-party app needed.
 
 Reminders whose time passes while the server is down are skipped on restart (no
 stale-notification spam). The daily brief degrades gracefully — calendar events
@@ -66,9 +65,8 @@ cd backend && uv run pytest
 
 ### MCP server (Phase 2)
 
-Exposes `get_projects`, `get_tasks`, `add_task`, `update_task`, `complete_task`,
-and `get_brief` to Claude. It calls the backend over HTTP, so the backend must
-be running.
+Exposes full CRUD for projects, sections, tasks, labels, reminders, and lists to
+Claude. It calls the backend over HTTP, so the backend must be running.
 
 ```sh
 cd mcp_server
@@ -90,6 +88,7 @@ ones for later milestones:
 | Var | Purpose |
 |---|---|
 | `TODO_DATABASE_PATH` | SQLite file location (absolute path on the Pi) |
-| `TODO_NTFY_SERVER` / `TODO_NTFY_TOPIC` | Push notifications |
+| `TODO_VAPID_PUBLIC_KEY` / `TODO_VAPID_PRIVATE_KEY` | Web Push VAPID keys |
+| `TODO_VAPID_SUBJECT` | VAPID subject (mailto: address) |
 | `TODO_CALDAV_USERNAME` / `TODO_CALDAV_PASSWORD` | iCloud app-specific password |
 | `TODO_BRIEF_TIME` | Daily brief time, `HH:MM` |

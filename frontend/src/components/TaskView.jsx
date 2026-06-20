@@ -60,8 +60,22 @@ export default function TaskView({ project }) {
   const topLevel = tasks.filter((t) => t.parent_id == null);
   const visible = (t) => showCompleted || !t.completed;
 
+  function sortTasks(list) {
+    return [...list].sort((a, b) => {
+      const aHasDate = a.due_date != null;
+      const bHasDate = b.due_date != null;
+      if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+      if (aHasDate && bHasDate) {
+        const aKey = a.due_time ? `${a.due_date}T${a.due_time}` : `${a.due_date}T99:99`;
+        const bKey = b.due_time ? `${b.due_date}T${b.due_time}` : `${b.due_date}T99:99`;
+        if (aKey !== bKey) return aKey < bKey ? -1 : 1;
+      }
+      return a.priority - b.priority;
+    });
+  }
+
   function tasksFor(sectionId) {
-    return topLevel.filter((t) => t.section_id === sectionId && visible(t));
+    return sortTasks(topLevel.filter((t) => t.section_id === sectionId && visible(t)));
   }
 
   function cancelAddSection() {

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """App configuration. Override via environment variables or a .env file.
 
     Defaults target local Mac development; the Pi deployment supplies its own
-    values (database path, ntfy server/topic, CalDAV credentials) via env.
+    values (database path, CalDAV credentials, VAPID keys) via env.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="TODO_", extra="ignore")

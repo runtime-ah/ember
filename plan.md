@@ -133,7 +133,7 @@ A Python MCP server wrapping the FastAPI backend, exposing tasks as Claude tools
 ## Infrastructure Notes
 
 - Pi already running, Tailscale connected
-- Ntfy can be self-hosted on the Pi (`docker run -p 80:80 binwiederhier/ntfy`)
+- Notifications via Web Push (VAPID) — no third-party service needed
 - iCloud CalDAV endpoint: `https://caldav.icloud.com`
 - iCloud requires an app-specific password (generated at appleid.apple.com)
 - APScheduler runs in-process with FastAPI — no separate worker needed for this scale
@@ -230,9 +230,8 @@ extend: {
 - **Touch target sizing** — some icon buttons are 13–14px with no padding
 
 ### 🔴 Notifications (backend complete, UI missing)
-- **Reminder datetime picker** in task add/edit — APScheduler + ntfy push already implemented, no frontend yet
-- **Notification channel decision**: Web Push (built into PWA, best UX), ntfy (already wired), or Telegram (easiest to add)
-- **Ntfy tap-through** — `send_push` already accepts a `click` param; wire it to the Pi's Tailscale URL so tapping a notification opens the app
+- **Reminder datetime picker** in task add/edit — APScheduler + Web Push already implemented, no frontend yet
+- **Push tap-through** — `dispatch_notification` accepts a `click` param; wire it to the Pi's Tailscale URL so tapping a notification opens the app
 
 ### 🟡 Task Management
 - **Move task between sections and projects**

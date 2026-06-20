@@ -33,6 +33,9 @@ def _drop_none(d: dict) -> dict:
     return {k: v for k, v in d.items() if v is not None}
 
 
+# --- Projects ---
+
+
 @mcp.tool()
 async def get_projects() -> list[dict]:
     """List all projects, each with its sections. Use this to discover the
@@ -41,6 +44,158 @@ async def get_projects() -> list[dict]:
     for p in projects:
         p["sections"] = await _request("GET", "/api/sections", params={"project_id": p["id"]})
     return projects
+
+
+@mcp.tool()
+async def create_project(
+    name: str,
+    color: str | None = None,
+    icon: str | None = None,
+    pinned: bool = False,
+) -> dict:
+    """Create a new project and return it.
+
+    Args:
+        name: project title (required)
+        color: hex color e.g. '#c96442'
+        icon: icon slug e.g. 'garden', 'tools', 'nature', 'car', 'ideas', 'list', 'shopping'
+        pinned: pin to the top of the sidebar
+    """
+    body = _drop_none({"name": name, "color": color, "icon": icon, "pinned": pinned})
+    return await _request("POST", "/api/projects", json=body)
+
+
+@mcp.tool()
+async def update_project(
+    project_id: int,
+    name: str | None = None,
+    color: str | None = None,
+    icon: str | None = None,
+    pinned: bool | None = None,
+    archived: bool | None = None,
+) -> dict:
+    """Edit an existing project. Only the fields you pass are changed.
+
+    Args:
+        project_id: project to update (see get_projects)
+        name: new title
+        color: hex color e.g. '#c96442'
+        icon: icon slug
+        pinned: pin/unpin from sidebar
+        archived: archive or unarchive the project
+    """
+    body = _drop_none(
+        {"name": name, "color": color, "icon": icon, "pinned": pinned, "archived": archived}
+    )
+    return await _request("PATCH", f"/api/projects/{project_id}", json=body)
+
+
+@mcp.tool()
+async def delete_project(project_id: int) -> None:
+    """Permanently delete a project and all its tasks.
+
+    Args:
+        project_id: project to delete (see get_projects)
+    """
+    await _request("DELETE", f"/api/projects/{project_id}")
+
+
+# --- Sections ---
+
+
+@mcp.tool()
+async def create_section(
+    project_id: int,
+    name: str,
+    icon: str | None = None,
+) -> dict:
+    """Create a new section within a project.
+
+    Args:
+        project_id: project to add the section to (see get_projects)
+        name: section title
+        icon: optional icon slug
+    """
+    body = _drop_none({"project_id": project_id, "name": name, "icon": icon})
+    return await _request("POST", "/api/sections", json=body)
+
+
+@mcp.tool()
+async def update_section(
+    section_id: int,
+    name: str | None = None,
+    icon: str | None = None,
+) -> dict:
+    """Edit an existing section. Only the fields you pass are changed.
+
+    Args:
+        section_id: section to update (see get_projects)
+        name: new title
+        icon: new icon slug
+    """
+    body = _drop_none({"name": name, "icon": icon})
+    return await _request("PATCH", f"/api/sections/{section_id}", json=body)
+
+
+@mcp.tool()
+async def delete_section(section_id: int) -> None:
+    """Delete a section. Tasks in the section are moved to the project root (section unset).
+
+    Args:
+        section_id: section to delete (see get_projects)
+    """
+    await _request("DELETE", f"/api/sections/{section_id}")
+
+
+# --- Labels ---
+
+
+@mcp.tool()
+async def get_labels() -> list[dict]:
+    """Return all labels. Use label ids when adding/updating tasks."""
+    return await _request("GET", "/api/labels")
+
+
+@mcp.tool()
+async def create_label(name: str, color: str | None = None) -> dict:
+    """Create a new label and return it.
+
+    Args:
+        name: label name, must be unique (used as #tag identifier)
+        color: optional hex color e.g. '#c96442'
+    """
+    body = _drop_none({"name": name, "color": color})
+    return await _request("POST", "/api/labels", json=body)
+
+
+@mcp.tool()
+async def update_label(
+    label_id: int,
+    name: str | None = None,
+    color: str | None = None,
+) -> dict:
+    """Edit an existing label. Only the fields you pass are changed.
+
+    Args:
+        label_id: label to update (see get_labels)
+        name: new label name
+        color: new hex color
+    """
+    body = _drop_none({"name": name, "color": color})
+    return await _request("PATCH", f"/api/labels/{label_id}", json=body)
+
+
+@mcp.tool()
+async def delete_label(label_id: int) -> None:
+    """Permanently delete a label and remove it from all tasks.
+
+    Args:
+        label_id: label to delete (see get_labels)
+    """
+    await _request("DELETE", f"/api/labels/{label_id}")
+
+
+# --- Tasks ---
 
 
 @mcp.tool()
@@ -82,6 +237,7 @@ async def add_task(
     due_date: str | None = None,
     due_time: str | None = None,
     reminder_time: str | None = None,
+    label_ids: list[int] | None = None,
     parent_id: int | None = None,
 ) -> dict:
     """Create a task.
@@ -94,7 +250,8 @@ async def add_task(
         priority: 1 (highest) .. 4 (none, default)
         due_date: ISO date YYYY-MM-DD
         due_time: HH:MM:SS
-        reminder_time: ISO datetime YYYY-MM-DDTHH:MM:SS — fires an ntfy push
+        reminder_time: ISO datetime YYYY-MM-DDTHH:MM:SS — fires a Web Push notification
+        label_ids: list of label ids to attach (see get_labels)
         parent_id: make this a subtask of an existing task (one level deep)
     """
     body = _drop_none(
@@ -107,6 +264,7 @@ async def add_task(
             "due_date": due_date,
             "due_time": due_time,
             "reminder_time": reminder_time,
+            "label_ids": label_ids,
             "parent_id": parent_id,
         }
     )
@@ -124,8 +282,22 @@ async def update_task(
     reminder_time: str | None = None,
     project_id: int | None = None,
     section_id: int | None = None,
+    label_ids: list[int] | None = None,
 ) -> dict:
-    """Edit an existing task. Only the fields you pass are changed."""
+    """Edit an existing task. Only the fields you pass are changed.
+
+    Args:
+        task_id: task to update
+        content: new task text
+        description: new notes
+        priority: 1 (highest) .. 4 (none)
+        due_date: ISO date YYYY-MM-DD
+        due_time: HH:MM:SS
+        reminder_time: ISO datetime YYYY-MM-DDTHH:MM:SS
+        project_id: move task to a different project
+        section_id: move task to a different section (pass 0 to clear)
+        label_ids: replace the task's labels with this list (use [] to remove all)
+    """
     body = _drop_none(
         {
             "content": content,
@@ -136,6 +308,7 @@ async def update_task(
             "reminder_time": reminder_time,
             "project_id": project_id,
             "section_id": section_id,
+            "label_ids": label_ids,
         }
     )
     return await _request("PATCH", f"/api/tasks/{task_id}", json=body)
@@ -145,6 +318,98 @@ async def update_task(
 async def complete_task(task_id: int) -> dict:
     """Mark a task complete."""
     return await _request("POST", f"/api/tasks/{task_id}/complete")
+
+
+@mcp.tool()
+async def uncomplete_task(task_id: int) -> dict:
+    """Mark a completed task as incomplete and re-arm its reminder.
+
+    Args:
+        task_id: task to uncomplete
+    """
+    return await _request("POST", f"/api/tasks/{task_id}/uncomplete")
+
+
+@mcp.tool()
+async def delete_task(task_id: int) -> None:
+    """Permanently delete a task and its subtasks.
+
+    Args:
+        task_id: task to delete
+    """
+    await _request("DELETE", f"/api/tasks/{task_id}")
+
+
+# --- Reminders ---
+
+
+@mcp.tool()
+async def get_reminders(task_id: int | None = None) -> list[dict]:
+    """Return reminders, optionally filtered by task.
+
+    Args:
+        task_id: only reminders linked to this task (omit for all reminders)
+    """
+    params = _drop_none({"task_id": task_id})
+    return await _request("GET", "/api/reminders", params=params)
+
+
+@mcp.tool()
+async def create_reminder(
+    fire_time: str,
+    message: str,
+    task_id: int | None = None,
+    recurrence_rule: str | None = None,
+) -> dict:
+    """Create a standalone reminder (not linked to a task) or a task-linked reminder.
+
+    Args:
+        fire_time: ISO datetime YYYY-MM-DDTHH:MM:SS when to fire
+        message: notification text
+        task_id: optionally link to a task
+        recurrence_rule: 'daily', 'weekdays', 'weekly', 'biweekly', or 'monthly'
+    """
+    body = _drop_none(
+        {
+            "fire_time": fire_time,
+            "message": message,
+            "task_id": task_id,
+            "recurrence_rule": recurrence_rule,
+        }
+    )
+    return await _request("POST", "/api/reminders", json=body)
+
+
+@mcp.tool()
+async def update_reminder(
+    reminder_id: int,
+    fire_time: str | None = None,
+    message: str | None = None,
+    recurrence_rule: str | None = None,
+) -> dict:
+    """Edit an existing reminder. Only the fields you pass are changed.
+
+    Args:
+        reminder_id: reminder to update (see get_reminders)
+        fire_time: new ISO datetime YYYY-MM-DDTHH:MM:SS
+        message: new notification text
+        recurrence_rule: 'daily', 'weekdays', 'weekly', 'biweekly', 'monthly', or null to clear
+    """
+    body = _drop_none({"fire_time": fire_time, "message": message, "recurrence_rule": recurrence_rule})
+    return await _request("PATCH", f"/api/reminders/{reminder_id}", json=body)
+
+
+@mcp.tool()
+async def delete_reminder(reminder_id: int) -> None:
+    """Permanently delete a reminder and cancel its scheduled notification.
+
+    Args:
+        reminder_id: reminder to delete (see get_reminders)
+    """
+    await _request("DELETE", f"/api/reminders/{reminder_id}")
+
+
+# --- Brief ---
 
 
 @mcp.tool()
@@ -178,6 +443,37 @@ async def create_list(
                    or 'numbered' (auto-numbered). Defaults to 'bullet'.
     """
     return await _request("POST", "/api/lists", json={"name": name, "list_type": list_type})
+
+
+@mcp.tool()
+async def update_list(
+    list_id: int,
+    name: str | None = None,
+    icon: str | None = None,
+    color: str | None = None,
+    list_type: str | None = None,
+) -> dict:
+    """Edit a list's metadata. Only the fields you pass are changed.
+
+    Args:
+        list_id: list to update (see get_lists)
+        name: new title
+        icon: icon slug
+        color: hex color e.g. '#c96442'
+        list_type: 'checkbox', 'bullet', or 'numbered'
+    """
+    body = _drop_none({"name": name, "icon": icon, "color": color, "list_type": list_type})
+    return await _request("PATCH", f"/api/lists/{list_id}", json=body)
+
+
+@mcp.tool()
+async def delete_list(list_id: int) -> None:
+    """Permanently delete a list and all its items.
+
+    Args:
+        list_id: list to delete (see get_lists)
+    """
+    await _request("DELETE", f"/api/lists/{list_id}")
 
 
 @mcp.tool()

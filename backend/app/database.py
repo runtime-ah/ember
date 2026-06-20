@@ -34,6 +34,41 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def _migrate_task_reminder_times() -> None:
+    """Convert any remaining task.reminder_time values to Reminder rows and clear
+    the field. Idempotent — only touches tasks where reminder_time is still set."""
+    import logging
+    from datetime import datetime
+
+    from sqlalchemy import text
+
+    log = logging.getLogger("todo.db")
+    with SessionLocal() as db:
+        rows = db.execute(
+            text("SELECT id, content, reminder_time, completed FROM tasks WHERE reminder_time IS NOT NULL")
+        ).fetchall()
+        now = datetime.now()
+        inserted = 0
+        for task_id, content, reminder_time_str, completed in rows:
+            try:
+                fire_time = datetime.fromisoformat(reminder_time_str)
+            except (TypeError, ValueError):
+                continue
+            if not completed and fire_time > now:
+                db.execute(
+                    text(
+                        "INSERT INTO reminders (task_id, message, fire_time, sent, \"order\", created_at)"
+                        " VALUES (:task_id, :message, :fire_time, 0, 0, :now)"
+                    ),
+                    {"task_id": task_id, "message": content, "fire_time": reminder_time_str, "now": now.isoformat()},
+                )
+                inserted += 1
+            db.execute(text("UPDATE tasks SET reminder_time = NULL WHERE id = :id"), {"id": task_id})
+        db.commit()
+    if inserted:
+        log.info("Promoted %d task.reminder_time(s) to Reminder rows", inserted)
+
+
 def init_db() -> None:
     # Import models so they register on Base.metadata before create_all.
     from app import models  # noqa: F401
@@ -41,6 +76,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _run_lightweight_migrations()
     _backfill_reminders_from_tasks()
+    _migrate_task_reminder_times()
 
 
 def _backfill_reminders_from_tasks() -> None:

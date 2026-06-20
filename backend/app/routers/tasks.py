@@ -48,6 +48,16 @@ def _reminders_for_task(db: Session, task_id: int) -> list[models.Reminder]:
     ).all())
 
 
+def _promote_reminder_time(db: Session, task: models.Task, fire_time: datetime) -> None:
+    """Create a Reminder row from a task-level reminder_time and schedule it.
+    Clears task.reminder_time so the two systems don't diverge."""
+    rem = models.Reminder(task_id=task.id, message=task.content, fire_time=fire_time)
+    db.add(rem)
+    db.flush()
+    sync_reminder(rem)
+    task.reminder_time = None
+
+
 def _next_due_date(rule: str, current: date | None) -> date:
     base = current or date.today()
     if rule == "daily":
@@ -116,10 +126,13 @@ def create_task(payload: schemas.TaskCreate, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     _validate_parent(db, payload.parent_id)
     data = payload.model_dump(exclude={"label_ids"})
+    reminder_time = data.pop("reminder_time", None)
     task = models.Task(**data)
     db.add(task)
-    db.flush()  # get task.id before syncing labels
+    db.flush()  # get task.id before syncing labels and creating reminder
     _sync_labels(db, task, payload.label_ids)
+    if reminder_time:
+        _promote_reminder_time(db, task, reminder_time)
     db.commit()
     db.refresh(task)
     return task
@@ -136,10 +149,13 @@ def update_task(task_id: int, payload: schemas.TaskUpdate, db: Session = Depends
     data = payload.model_dump(exclude_unset=True, exclude={"label_ids"})
     if "project_id" in data and db.get(models.Project, data["project_id"]) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    reminder_time = data.pop("reminder_time", None)
     for field, value in data.items():
         setattr(task, field, value)
     if payload.label_ids is not None:
         _sync_labels(db, task, payload.label_ids)
+    if reminder_time is not None:
+        _promote_reminder_time(db, task, reminder_time)
     db.commit()
     db.refresh(task)
     return task
